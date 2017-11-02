@@ -1,0 +1,23 @@
+component:
+  implementation: rm0368-gpio
+  type: rm0368-gpio
+  class: nucleo_gpio
+  include: nucleo_gpio.h
+  description: GPIO device included into STMicroelectronics STM32F401xx family of microcontrollers
+  parameters:
+    moder:
+      type: uint32
+      default: 0x00000000
+      description: GPIO port mode register reset value
+      advanced: true
+    ospeedr:
+      type: uint32
+      default: 0x00000000
+      description: GPIO port output speed register reset value
+      advanced: true
+    pupdr:
+      type: uint32
+      default: 0x00000000
+      description: GPIO port pull-up/pull-down reset value
+      advanced: true
+
