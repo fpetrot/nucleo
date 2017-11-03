@@ -6,7 +6,9 @@ platforms:
         type: simple-bus
 
       cpu:
-        type: cpu-cortex-m4
+        type: cpu-arm-v7m
+        cpu-model: cortex-m4
+        num-irq: 52
         bindings:
           mem: bus
 
