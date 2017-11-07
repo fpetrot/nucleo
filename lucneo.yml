@@ -1,0 +1,29 @@
+platforms:
+  lucneo:
+    description: Cortex-M4 test platform
+    components:
+      mem-bus:
+        type: simple-bus
+
+      cpu0:
+        type: cpu-arm-cortex-m4
+        bindings:
+          mem: mem-bus
+          nvic-link: nvic.link
+
+      mem:
+        type: memory
+        size: &mem_size 64M
+        bindings:
+          mem:
+            peer: mem-bus.mem
+            address: { 0x0: *mem_size }
+
+      nvic:
+        type: arm-nvic
+        num-irq: 64
+        bindings:
+          mem:
+            peer: mem-bus.mem
+            address: { 0xe000e000: 0x1000 }
+          irq-out: cpu0.irq
