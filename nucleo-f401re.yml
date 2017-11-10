@@ -1,42 +1,47 @@
 platforms:
   nucleo-f401re:
-    description: Affordable and flexible platform to ease prototyping using a STM32F401RET6 microcontroller
+    description: Affordable and flexible platform to ease prototyping using a STM32F401RET6 microcontroller, according to the salesman :-)
+
     components:
-      bus:
+      mem-bus:
         type: simple-bus
 
       cpu:
-        type: cpu-arm-v7m
-        cpu-model: cortex-m4
-        num-irq: 52
+        type: cpu-arm-cortex-m4
         bindings:
-          mem: bus
+          mem: mem-bus
+          nvic-link: nvic.link
+
+      nvic:
+        type: arm-nvic
+        num-irq: 52 # According to page 201 of DocID025350 Rev 4
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0xe000e000: 0x1000 }
+          irq-out: cpu.irq
 
       flash:
         type: memory
         size: &mem_size 512K
         bindings:
           mem:
-            peer: bus
-            address: { &mem_start 0x80000000: *mem_size }
+            peer: mem-bus
+            # Assume we boot from flash with the appropriate remaping 
+            # Boot1 Boot0
+            #   x     0   => remap flash to 0x00000000 at boot
+            # FIXME: Even when aliased in the boot memory space, the related
+            #        memory is still accessible at its original memory space
+            address: { &mem_start 0x00000000: *mem_size }
 
       sram:
         type: memory
         size: &mem_size 96K
         bindings:
           mem:
-            peer: bus
+            peer: mem-bus
             address: { &mem_start 0x20000000: *mem_size }
 
-#      irq-ctrl:
-#        type: nvic
-#        bindings:
-#          mem:
-#            peer: bus
-#            address: { 0x2000b200: 0x200 }
-#          cpu-irq: cpu.irq
-#          cpu-fiq: cpu.fiq
-#
 #      sys-timer:
 #        type: bcm2835-system-timer
 #        bindings:
@@ -60,7 +65,7 @@ platforms:
         pupdr: 0x64000000
         bindings:
           mem:
-            peer: bus
+            peer: mem-bus
             address: { 0x40020000: 0x400 }
 
       gpio-b:
@@ -70,42 +75,33 @@ platforms:
         pupdr: 0x00000100
         bindings:
           mem:
-            peer: bus
+            peer: mem-bus
             address: { 0x40020400: 0x400 }
 
       gpio-c:
         type: rm0368-gpio
         bindings:
           mem:
-            peer: bus
+            peer: mem-bus
             address: { 0x40020800: 0x400 }
 
       gpio-d:
         type: rm0368-gpio
         bindings:
           mem:
-            peer: bus
+            peer: mem-bus
             address: { 0x40020C00: 0x400 }
 
       gpio-e:
         type: rm0368-gpio
         bindings:
           mem:
-            peer: bus
+            peer: mem-bus
             address: { 0x40021000: 0x400 }
 
       gpio-h:
         type: rm0368-gpio
         bindings:
           mem:
-            peer: bus
+            peer: mem-bus
             address: { 0x40021C00: 0x400 }
-
-    plugins:
-      bootloader:
-        type: bootloader
-        architecture: arm
-        ram-start: *mem_start
-        kernel-load-addr: 0x00008000
-        machine-id: 0x00000c42
-        dtb-load-addr: 0x00000100
