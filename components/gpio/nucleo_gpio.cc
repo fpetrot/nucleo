@@ -90,7 +90,7 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
     switch (ofs) {
     case GPIOx_MODER:
         // bit de config à 00 pour mode input (écriture)
-	set_weak_bits(0, nucleo_gpio::gpiox_moder_reg);
+	    set_weak_bits(0, nucleo_gpio::gpiox_moder_reg);
         // set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_idr_reg);
         break; 
     case GPIOx_OTYPER: 
@@ -102,18 +102,18 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
         break;
     case GPIOx_IDR:
         /* doc : The data input through the I/O are stored 
-	 * into the input data register (GPIOx_IDR), a read-only register
-	 */
-	// METTRE UN IF (I/O) ?? 
-        set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_idr_reg);
+	     * into the input data register (GPIOx_IDR), a read-only register
+	     */
+	    // METTRE UN IF (I/O) ?? PAS SENSE ETRE ACCESSIBLE EN ECRITURE
+        // set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_idr_reg);
         break;
     case GPIOx_ODR:	
         /* doc : GPIx_ODR stores the data to be output, 
-	 * it is read/write accessible
-	 */
-	if (nucleo_gpio::gpiox_moder_reg == 0x00000000) {
+	     * it is read/write accessible
+	     */
+	    if (nucleo_gpio::gpiox_moder_reg == 0x00000000) {
             set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_odr_reg);
-	}	
+	    }	
         break;
 #if 0
     case GPIOx_BSRR:
@@ -153,8 +153,7 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
         break;
     case GPIOx_ODR:
         //doc : GPIx_ODR stores the data to be output, it is read/write accessible
-        *data = (uint32_t)((uint16_t)(nucleo_gpio::gpiox_odr_reg));
-	
+        *data = (uint32_t)((uint16_t)(nucleo_gpio::gpiox_odr_reg));	
         break;
     // case GPIOx_BSRR:
     // case GPIOx_LCKR:
