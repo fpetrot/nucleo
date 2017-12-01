@@ -153,7 +153,11 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
         break;
     case GPIOx_ODR:
         //doc : GPIx_ODR stores the data to be output, it is read/write accessible
-        *data = (uint32_t)((uint16_t)(nucleo_gpio::gpiox_odr_reg));	
+        if (nucleo_gpio::gpiox_moder_reg == 0b0101010101010101) {
+            *data = (uint32_t)((uint16_t)(nucleo_gpio::gpiox_odr_reg));	
+        } else {
+            *data = 0x00000000;
+        }
         break;
     // case GPIOx_BSRR:
     // case GPIOx_LCKR:
