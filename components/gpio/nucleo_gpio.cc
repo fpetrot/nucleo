@@ -64,7 +64,7 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
         // bit de config à 00 pour mode input (écriture)
 	    set_weak_bits(0, nucleo_gpio::gpiox_moder_reg);
         // set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_idr_reg);
-        break; 
+        break;
     case GPIOx_OTYPER: 
         break;
     case GPIOx_OSPEEDER:
@@ -87,8 +87,26 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
             set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_odr_reg);
 	    }	
         break;
-#if 0
     case GPIOx_BSRR:
+        /* Set the BR part (bit 31 downto 16)
+         */
+        for(int i=31; i>=16; i--) {
+            // check bit state
+            if(((nucleo_gpio::gpiox_bsrr_reg >> i) & 1U) == 1) {
+                // reset (clear) the corresponding bit
+                nucleo_gpio::gpiox_odr_reg &= ~(1UL << (i-16)); 
+            }
+        }
+        /* Set the BS part (bit 15 downto 0)
+         */
+        for(int i= 15; i>=0; i--) {
+            if(((nucleo_gpio::gpiox_bsrr_reg >> i) & 1U) == 1) { 
+                // Set the corresponding bit ODR
+                nucleo_gpio::gpiox_odr_reg |= 1UL << i;
+            }
+        }
+        break;
+#if 0
     case GPIOx_LCKR:
     case GPIOx_AFRL:
     case GPIOx_AFRH:
@@ -121,17 +139,23 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
         break;
     case GPIOx_IDR:
         //doc : The data input through the I/O are stored into the input data register (GPIOx_IDR), a read-only register
-        *data = (uint32_t)((uint16_t)(nucleo_gpio::gpiox_idr_reg));
+        if ((uint16_t)nucleo_gpio::gpiox_moder_reg == 0b0101010101010101) {
+            *data = (uint32_t)((uint16_t)(nucleo_gpio::gpiox_idr_reg));	
+        } else {
+            *data = 0x0;
+        }
         break;
     case GPIOx_ODR:
         //doc : GPIx_ODR stores the data to be output, it is read/write accessible
         if ((uint16_t)nucleo_gpio::gpiox_moder_reg == 0b0101010101010101) {
             *data = (uint32_t)((uint16_t)(nucleo_gpio::gpiox_odr_reg));	
         } else {
-            *data = 0x0;
+            *data = 0x00000000;
         }
         break;
-    // case GPIOx_BSRR:
+    case GPIOx_BSRR:
+        *data = 0x0000;
+        break;
     // case GPIOx_LCKR:
     // case GPIOx_AFRL:
     // case GPIOx_AFRH:
@@ -141,16 +165,6 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
         bErr = true;
         return;
     }
-#if 0
-    uint16_t val;
-
-    // set 0 to config bits (0 to 15) of MODER register
-    val = 0b0101010101010101;
-    set_weak_bits(val, gpiox_moder_reg);
-
-    // read data of output register
-    *data = (uint32_t)((uint16_t)(*gpiox_odr_reg));
-#endif
     bErr = false;
 }
 

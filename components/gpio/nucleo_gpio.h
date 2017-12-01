@@ -108,12 +108,12 @@ public:
     sc_core::sc_event_or_list m_ev_gpios;
 
     void reset(const uint32_t& moder_rv, const uint32_t& ospeedr_rv, const uint32_t& pupdr_rv) {
-            gpiox_moder_reg = moder_rv;
+        gpiox_moder_reg = moder_rv;
 	    gpiox_otyper_reg = 0x00000000;
-            gpiox_speedr_reg = ospeedr_rv;
-            gpiox_pupdr_reg = pupdr_rv;
-            gpiox_idr_reg = 0x00000000;
-            gpiox_odr_reg = 0x00000000;
+        gpiox_speedr_reg = ospeedr_rv;
+        gpiox_pupdr_reg = pupdr_rv;
+        gpiox_idr_reg = 0x00000000;
+        gpiox_odr_reg = 0x00000000;
 	    gpiox_bsrr_reg = 0x00000000;
     }
 
