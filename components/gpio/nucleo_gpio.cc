@@ -52,34 +52,6 @@ void nucleo_gpio::end_of_elaboration()
     }
 }
 
-// void nucleo_gpio::gpset(uint32_t val, uint8_t start, uint8_t count, uint32_t *lev) {
-//     uint32_t changes = val & ~*lev;
-//     uint32_t cur = 1;
-//
-//     for (int i = 0; i < count; i++) {
-//         if ((changes & cur) && (m_gpfsel.is_out(start + i))) {
-//             p_gpios[start + i].sc_p = !!(val & cur);
-//         }
-//         cur <<= 1;
-//     }
-//
-//     *lev |= val;
-// }
-//
-// void nucleo_gpio::gpclr(uint32_t val, uint8_t start, uint8_t count, uint32_t *lev) {
-//     uint32_t changes = val & *lev;
-//     uint32_t cur = 1;
-//
-//     for (int i = 0; i < count; i++) {
-//         if ((changes & cur) && (m_gpfsel.is_out(start + i))) {
-//             p_gpios[start + i].sc_p = !!(val & cur);
-//         }
-//         cur <<= 1;
-//     }
-//
-//     *lev &= ~val;
-// }
-
 void nucleo_gpio::set_weak_bits(uint16_t val, uint32_t &reg) {
     reg &= 0xFFFF0000;
     reg |= (uint32_t) val;
@@ -156,7 +128,7 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
         if ((uint16_t)nucleo_gpio::gpiox_moder_reg == 0b0101010101010101) {
             *data = (uint32_t)((uint16_t)(nucleo_gpio::gpiox_odr_reg));	
         } else {
-            *data = 0x00000000;
+            *data = 0x0;
         }
         break;
     // case GPIOx_BSRR:
