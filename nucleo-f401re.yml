@@ -27,7 +27,7 @@ platforms:
         bindings:
           mem:
             peer: mem-bus
-            # Assume we boot from flash with the appropriate remaping 
+            # Assume we boot from flash with the appropriate remaping
             # Boot1 Boot0
             #   x     0   => remap flash to 0x00000000 at boot
             # FIXME: Even when aliased in the boot memory space, the related
