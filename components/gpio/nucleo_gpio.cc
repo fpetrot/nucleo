@@ -111,7 +111,7 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
         /* doc : GPIx_ODR stores the data to be output, 
 	     * it is read/write accessible
 	     */
-	    if (nucleo_gpio::gpiox_moder_reg == 0x00000000) {
+	    if ((uint16_t)nucleo_gpio::gpiox_moder_reg == 0x0000) {
             set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_odr_reg);
 	    }	
         break;
@@ -153,7 +153,7 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
         break;
     case GPIOx_ODR:
         //doc : GPIx_ODR stores the data to be output, it is read/write accessible
-        if (nucleo_gpio::gpiox_moder_reg == 0b0101010101010101) {
+        if ((uint16_t)nucleo_gpio::gpiox_moder_reg == 0b0101010101010101) {
             *data = (uint32_t)((uint16_t)(nucleo_gpio::gpiox_odr_reg));	
         } else {
             *data = 0x00000000;
