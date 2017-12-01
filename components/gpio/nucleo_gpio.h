@@ -4,7 +4,7 @@
  *
  *  Based on the Raspberry PI Braodcom GPIO implementation
  *  Copyright (C) 2015  Clement Deschamps and Luc Michel
- * 
+ *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
  *  as published by the Free Software Foundation; either version 2
@@ -20,8 +20,8 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef _RASPBERRY_GPIO_H_
-#define _RASPBERRY_GPIO_H_
+#ifndef _NUCLEO_GPIO_H_
+#define _NUCLEO_GPIO_H_
 
 #include "rabbits/component/slave.h"
 #include <rabbits/component/port/out.h>
@@ -46,12 +46,6 @@ private:
     uint8_t m_fsel[NUCLEO_GPIO_COUNT];
 
 public:
-    void reset(const uint32_t& moder_rv, const uint32_t& ospeedr_rv, const uint32_t& pupdr_rv) {
-        for(int i=0; i<6; i++) {
-            set(i, 0);
-        }
-    }
-
     void set(uint8_t reg, uint32_t value) {
         for(int i=0; i<10; i++) {
             uint32_t index = 10*reg + i;
@@ -100,12 +94,40 @@ public:
 
     uint32_t m_lev0, m_lev1;
 
+    uint32_t gpiox_moder_reg;
+    uint32_t gpiox_otyper_reg;
+    uint32_t gpiox_speedr_reg;
+    uint32_t gpiox_pupdr_reg;
+    uint32_t gpiox_idr_reg;
+    uint32_t gpiox_odr_reg;
+    uint32_t gpiox_bsrr_reg;
+    uint32_t gpiox_lckr_reg;
+    uint32_t gpiox_afrl_reg;
+    uint32_t gpiox_afrh_reg;
+
     sc_core::sc_event_or_list m_ev_gpios;
 
-    void gpset(uint32_t val, uint8_t start, uint8_t count, uint32_t *lev);
-    void gpclr(uint32_t val, uint8_t start, uint8_t count, uint32_t *lev);
+    void reset(const uint32_t& moder_rv, const uint32_t& ospeedr_rv, const uint32_t& pupdr_rv) {
+            gpiox_moder_reg = moder_rv;
+	    gpiox_otyper_reg = 0x00000000;
+            gpiox_speedr_reg = ospeedr_rv;
+            gpiox_pupdr_reg = pupdr_rv;
+            gpiox_idr_reg = 0x00000000;
+            gpiox_odr_reg = 0x00000000;
+	    gpiox_bsrr_reg = 0x00000000;
+    }
+
+
+    // void gpset(uint32_t val, uint8_t start, uint8_t count, uint32_t *lev);
+    // void gpclr(uint32_t val, uint8_t start, uint8_t count, uint32_t *lev);
+
+    void set_weak_bits(uint16_t val, uint32_t &reg);
 
 private:
+    uint32_t moder_rv;
+    uint32_t ospeedr_rv;
+    uint32_t pupdr_rv;
+
     void bus_cb_read_32(uint64_t addr, uint32_t *data, bool &bErr);
     void bus_cb_write_32(uint64_t addr, uint32_t *data, bool &bErr);
 
