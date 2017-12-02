@@ -61,8 +61,8 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
 {
     switch (ofs) {
     case GPIOx_MODER:
-        // bit de config à 00 pour mode input (écriture)
-	    set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_moder_reg);
+        // bit de config à 00 input, 01 general output, 10 AF, 11 analog
+        nucleo_gpio::gpiox_moder_reg = *data; 
         break;
     case GPIOx_OTYPER:
         set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_otyper_reg); 
@@ -129,10 +129,10 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
     switch (ofs) {
     case GPIOx_MODER:
         // bit de config à 01 pour mode output (lecture)
-        set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_moder_reg);
+        nucleo_gpio::gpiox_moder_reg = *data;
         break;
     case GPIOx_OTYPER:
-        *data = 0;
+        *data = 0x0;
         break;
     case GPIOx_OSPEEDER:
         // pas de sens en simulation
@@ -149,10 +149,13 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
         break;
     case GPIOx_ODR:
         //doc : GPIx_ODR stores the data to be output, it is read/write accessible
-        if ((uint16_t)nucleo_gpio::gpiox_moder_reg == 0b0101010101010101) {
-            *data = (uint32_t)((uint16_t)(nucleo_gpio::gpiox_odr_reg));	
-        } else {
-            *data = 0x00000000;
+        *data = 0x0;
+        for (int i = 0; i < 16; i++) {
+            if ((((nucleo_gpio::gpiox_moder_reg) >> (i * 2) & 0x1) == 0x1)
+                    && (((nucleo_gpio::gpiox_moder_reg) >> ((i * 2) + 1) & 0x1) == 0x0)) {
+                uint16_t x = (nucleo_gpio::gpiox_odr_reg >> i) & 1U;
+                *data ^= (-(unsigned long)x ^ *data) & (1UL << i);
+            }
         }
         break;
     case GPIOx_BSRR:
