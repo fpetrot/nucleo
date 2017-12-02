@@ -65,7 +65,14 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
 	    set_weak_bits(0, nucleo_gpio::gpiox_moder_reg);
         // set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_idr_reg);
         break;
-    case GPIOx_OTYPER: 
+    case GPIOx_OTYPER:
+        for(int i=0; i<16; i++) {
+            /* change the ith bit of gpiox_otyper_reg to the value 
+             * of the ith bit of *data
+             */
+            uint32_t x = (*data >> i) & 1U;
+            gpiox_otyper_reg ^= (-(unsigned long)x ^ gpiox_otyper_reg) & (1UL << i);
+        }
         break;
     case GPIOx_OSPEEDER:
         // pas de sens en simulation
@@ -131,6 +138,7 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
         set_weak_bits(0b0101010101010101, nucleo_gpio::gpiox_moder_reg);
         break;
     case GPIOx_OTYPER:
+        *data = 0;
         break;
     case GPIOx_OSPEEDER:
         // pas de sens en simulation

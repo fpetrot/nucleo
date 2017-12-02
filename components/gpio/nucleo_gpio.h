@@ -115,6 +115,7 @@ public:
         gpiox_idr_reg = 0x00000000;
         gpiox_odr_reg = 0x00000000;
 	    gpiox_bsrr_reg = 0x00000000;
+
     }
 
 
