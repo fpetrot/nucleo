@@ -19,26 +19,22 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-
 #include <cstdio>
 #include <cstdlib>
-
 #include "nucleo_gpio.h"
-
 #include "rabbits/logger.h"
 
 using namespace sc_core;
-
 nucleo_gpio::nucleo_gpio(sc_core::sc_module_name name,
                                const Parameters &params, ConfigManager &c)
     : Slave(name, params, c)
     , p_gpios("gpios", NUCLEO_GPIO_COUNT)
 {
-    const uint32_t moder_rv   = params["moder"].as<uint32_t>();
-    const uint32_t ospeedr_rv = params["ospeedr"].as<uint32_t>();
-    const uint32_t pupdr_rv   = params["pupdr"].as<uint32_t>();
+    moder_rv   = params["moder"].as<uint32_t>();
+    ospeedr_rv = params["ospeedr"].as<uint32_t>();
+    pupdr_rv   = params["pupdr"].as<uint32_t>();
 
-    m_gpfsel.reset(moder_rv, ospeedr_rv, pupdr_rv);
+    nucleo_gpio::reset(moder_rv, ospeedr_rv, pupdr_rv);
 
     for(auto &p : p_gpios) {
         p.set_autoconnect_to(0);
@@ -48,7 +44,7 @@ nucleo_gpio::nucleo_gpio(sc_core::sc_module_name name,
 nucleo_gpio::~nucleo_gpio()
 {
 }
-
+    
 void nucleo_gpio::end_of_elaboration()
 {
     for (auto &p : p_gpios) {
@@ -56,83 +52,89 @@ void nucleo_gpio::end_of_elaboration()
     }
 }
 
-void nucleo_gpio::gpset(uint32_t val, uint8_t start, uint8_t count, uint32_t *lev) {
-    uint32_t changes = val & ~*lev;
-    uint32_t cur = 1;
-
-    for (int i = 0; i < count; i++) {
-        if ((changes & cur) && (m_gpfsel.is_out(start + i))) {
-            p_gpios[start + i].sc_p = !!(val & cur);
-        }
-        cur <<= 1;
-    }
-
-    *lev |= val;
-}
-
-void nucleo_gpio::gpclr(uint32_t val, uint8_t start, uint8_t count, uint32_t *lev) {
-    uint32_t changes = val & *lev;
-    uint32_t cur = 1;
-
-    for (int i = 0; i < count; i++) {
-        if ((changes & cur) && (m_gpfsel.is_out(start + i))) {
-            p_gpios[start + i].sc_p = !!(val & cur);
-        }
-        cur <<= 1;
-    }
-
-    *lev &= ~val;
+void nucleo_gpio::set_weak_bits(uint16_t val, uint32_t &reg) {
+    reg &= 0xFFFF0000;
+    reg |= (uint32_t) val;
 }
 
 void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
 {
     switch (ofs) {
+    case GPIOx_MODER:
+        // bit de config à 00 input, 01 general output, 10 AF, 11 analog
+        nucleo_gpio::gpiox_moder_reg = *data; 
+        break;
+    case GPIOx_OTYPER:
+        set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_otyper_reg); 
+        break;
+    case GPIOx_OSPEEDER:
+        nucleo_gpio::gpiox_speedr_reg = *data;
+        break;
+    case GPIOx_PUPDR:
+        nucleo_gpio::gpiox_pupdr_reg = *data;         
+        break;
+    case GPIOx_IDR:
+        /* doc : The data input through the I/O are stored 
+	     * into the input data register (GPIOx_IDR), a read-only register
+	     */
+	    // METTRE UN IF (I/O) ?? PAS SENSE ETRE ACCESSIBLE EN ECRITURE
+        // set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_idr_reg);
+        break;
+    case GPIOx_ODR:	
+        /* doc : GPIx_ODR stores the data to be output, 
+	     * it is read/write accessible
+	     */
+        for (int i = 0; i < 16; i++) {
+            if ((((nucleo_gpio::gpiox_moder_reg) >> (i * 2) & 0x1) == 0x0)
+                    && (((nucleo_gpio::gpiox_moder_reg) >> ((i * 2) + 1) & 0x1) == 0x0)) {
+                uint16_t x = (*data >> i) & 1U;
+                nucleo_gpio::gpiox_odr_reg ^= (-(unsigned long)x ^ nucleo_gpio::gpiox_odr_reg) & (1UL << i);
+            }
+        }
+        break;
+    case GPIOx_BSRR:
+        nucleo_gpio::gpiox_bsrr_reg = *data;
+        /* Set the BR part (bit 31 downto 16)
+         */
+        for(int i=31; i>=16; i--) {
+            // check bit state
+            if(((nucleo_gpio::gpiox_bsrr_reg >> i) & 1U) == 1) {
+                // reset (clear) the corresponding bit
+                nucleo_gpio::gpiox_odr_reg &= ~(1UL << (i-16)); 
+            }
+        }
+        /* Set the BS part (bit 15 downto 0)
+         */
+        for(int i= 15; i>=0; i--) {
+            if(((nucleo_gpio::gpiox_bsrr_reg >> i) & 1U) == 1) { 
+                // Set the corresponding bit ODR
+                nucleo_gpio::gpiox_odr_reg |= 1UL << i;
+            }
+        }
+        break;
+    case GPIOx_LCKR:
+        nucleo_gpio::gpiox_lckr_reg = *data;
+        nucleo_gpio::gpiox_lckr_reg &= 0x0000FFFF;
+        nucleo_gpio::gpiox_lckk = nucleo_gpio::gpiox_lckr_reg & 0x00010000;
+
+        if (nucleo_gpio::gpiox_lckk == 0 && nucleo_gpio::gpiox_lck_state == 0) {
+            // nothing : stay in the initial state
+        } else if (nucleo_gpio::gpiox_lckk == 1 && nucleo_gpio::gpiox_lck_state == 0) {
+            nucleo_gpio::gpiox_lckr_reg_prev = gpiox_lckr_reg;
+            nucleo_gpio::gpiox_lck_state = 1;
+        } else if (nucleo_gpio::gpiox_lckk == 0 && nucleo_gpio::gpiox_lck_state == 1) {
+            nucleo_gpio::gpiox_lck_state = 2;
+        } else if (nucleo_gpio::gpiox_lckk == 1 && nucleo_gpio::gpiox_lck_state == 2) {
+            nucleo_gpio::gpiox_lck_state = 3;
+            // sequence ok : locking the config
+        } else {
+            nucleo_gpio::gpiox_lck_state = 0;
+            nucleo_gpio::gpiox_lckr_reg = 0x00000000;
+        }
+        break;
 #if 0
-    case GPFSEL0:
-    case GPFSEL1:
-    case GPFSEL2:
-    case GPFSEL3:
-    case GPFSEL4:
-    case GPFSEL5: {
-        uint8_t reg = ofs / 4;
-        m_gpfsel.set(reg, *data);
-        break;
-    }
-    case GPSET0:
-        gpset(*data, 0, 32, &m_lev0);
-        break;
-    case GPSET1:
-        gpset(*data, 32, 22, &m_lev1);
-        break;
-    case GPCLR0:
-        gpclr(*data, 0, 32, &m_lev0);
-        break;
-    case GPCLR1:
-        gpclr(*data, 32, 22, &m_lev1);
-        break;
-    case GPLEV0:
-    case GPLEV1:
-        // Read Only
-        break;
-    case GPEDS0:
-    case GPEDS1:
-    case GPREN0:
-    case GPREN1:
-    case GPFEN0:
-    case GPFEN1:
-    case GPHEN0:
-    case GPHEN1:
-    case GPLEN0:
-    case GPLEN1:
-    case GPAREN0:
-    case GPAREN1:
-    case GPAFEN0:
-    case GPAFEN1:
-    case GPPUD:
-    case GPPUDCLK0:
-    case GPPUDCLK1:
-        MLOG_F(SIM, WRN, "writing to register [0x%02X] is not yet implemented\n", ofs & 0xff);
-        break;
+    case GPIOx_AFRL:
+    case GPIOx_AFRH:
 #endif
     default:
         MLOG_F(SIM, ERR, "Bad %s::%s ofs=0x%X, data=0x%X-%X!\n", name(),
@@ -142,60 +144,54 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
         bErr = true;
         return;
     }
+
     bErr = false;
 }
 
-void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data , bool &bErr)
+void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
 {
     switch (ofs) {
-#if 0
-    case GPFSEL0:
-    case GPFSEL1:
-    case GPFSEL2:
-    case GPFSEL3:
-    case GPFSEL4:
-    case GPFSEL5: {
-        uint8_t reg = ofs / 4;
-        *data = m_gpfsel.get(reg);
+    case GPIOx_MODER:
+        // bit de config à 01 pour mode output (lecture)
+        nucleo_gpio::gpiox_moder_reg = *data;
         break;
-    }
-    case GPSET0:
-    case GPSET1:
-        // Write Only
-        *data = 0;
+    case GPIOx_OTYPER:
+        *data = 0x0;
         break;
-    case GPCLR0:
-    case GPCLR1:
-        // Write Only
-        *data = 0;
+    case GPIOx_OSPEEDER:
+        *data = 0x0;
         break;
-    case GPLEV0:
-        *data = m_lev0;
+    case GPIOx_PUPDR:
+        *data = 0x0;
         break;
-    case GPLEV1:
-        *data = m_lev1;
+    case GPIOx_IDR:
+        //doc : The data input through the I/O are stored into the input data register (GPIOx_IDR), a read-only register
+        *data = 0x0;
+        for (int i = 0; i < 16; i++) {
+            if ((((nucleo_gpio::gpiox_moder_reg) >> (i * 2) & 0x1) == 0x1)
+                    && (((nucleo_gpio::gpiox_moder_reg) >> ((i * 2) + 1) & 0x1) == 0x0)) {
+                uint16_t x = (nucleo_gpio::gpiox_idr_reg >> i) & 1U;
+                *data ^= (-(unsigned long)x ^ *data) & (1UL << i);
+            }
+        }
         break;
-    case GPEDS0:
-    case GPEDS1:
-    case GPREN0:
-    case GPREN1:
-    case GPFEN0:
-    case GPFEN1:
-    case GPHEN0:
-    case GPHEN1:
-    case GPLEN0:
-    case GPLEN1:
-    case GPAREN0:
-    case GPAREN1:
-    case GPAFEN0:
-    case GPAFEN1:
-    case GPPUD:
-    case GPPUDCLK0:
-    case GPPUDCLK1:
-        MLOG_F(SIM, WRN, "reading from register [0x%02X] is not yet implemented\n", ofs & 0xff);
-        *data = 0;
+    case GPIOx_ODR:
+        //doc : GPIx_ODR stores the data to be output, it is read/write accessible
+        *data = 0x0;
+        for (int i = 0; i < 16; i++) {
+            if ((((nucleo_gpio::gpiox_moder_reg) >> (i * 2) & 0x1) == 0x1)
+                    && (((nucleo_gpio::gpiox_moder_reg) >> ((i * 2) + 1) & 0x1) == 0x0)) {
+                uint16_t x = (nucleo_gpio::gpiox_odr_reg >> i) & 1U;
+                *data ^= (-(unsigned long)x ^ *data) & (1UL << i);
+            }
+        }
         break;
-#endif
+    case GPIOx_BSRR:
+        *data = 0x0;
+        break;
+    // case GPIOx_LCKR:
+    // case GPIOx_AFRL:
+    // case GPIOx_AFRH:
     default:
         MLOG_F(SIM, ERR, "Bad %s::%s ofs=0x%X!\n", name(), __FUNCTION__,
                (unsigned int) ofs);
@@ -231,4 +227,3 @@ void nucleo_gpio::gpio_thread()
         }
     }
 }
-
