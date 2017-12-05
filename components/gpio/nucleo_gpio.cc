@@ -68,9 +68,10 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
         set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_otyper_reg); 
         break;
     case GPIOx_OSPEEDER:
-        // pas de sens en simulation
+        nucleo_gpio::gpiox_speedr_reg = *data;
         break;
     case GPIOx_PUPDR:
+        nucleo_gpio::gpiox_pupdr_reg = *data;         
         break;
     case GPIOx_IDR:
         /* doc : The data input through the I/O are stored 
@@ -83,9 +84,6 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
         /* doc : GPIx_ODR stores the data to be output, 
 	     * it is read/write accessible
 	     */
-//	    if ((uint16_t)nucleo_gpio::gpiox_moder_reg == 0x0000) {
-//            set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_odr_reg);
-//	    }	
         for (int i = 0; i < 16; i++) {
             if ((((nucleo_gpio::gpiox_moder_reg) >> (i * 2) & 0x1) == 0x0)
                     && (((nucleo_gpio::gpiox_moder_reg) >> ((i * 2) + 1) & 0x1) == 0x0)) {
@@ -114,8 +112,27 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
             }
         }
         break;
-#if 0
     case GPIOx_LCKR:
+        nucleo_gpio::gpiox_lckr_reg = *data;
+        nucleo_gpio::gpiox_lckr_reg &= 0x0000FFFF;
+        nucleo_gpio::gpiox_lckk = nucleo_gpio::gpiox_lckr_reg & 0x00010000;
+
+        if (nucleo_gpio::gpiox_lckk == 0 && nucleo_gpio::gpiox_lck_state == 0) {
+            // nothing : stay in the initial state
+        } else if (nucleo_gpio::gpiox_lckk == 1 && nucleo_gpio::gpiox_lck_state == 0) {
+            nucleo_gpio::gpiox_lckr_reg_prev = gpiox_lckr_reg;
+            nucleo_gpio::gpiox_lck_state = 1;
+        } else if (nucleo_gpio::gpiox_lckk == 0 && nucleo_gpio::gpiox_lck_state == 1) {
+            nucleo_gpio::gpiox_lck_state = 2;
+        } else if (nucleo_gpio::gpiox_lckk == 1 && nucleo_gpio::gpiox_lck_state == 2) {
+            nucleo_gpio::gpiox_lck_state = 3;
+            // sequence ok : locking the config
+        } else {
+            nucleo_gpio::gpiox_lck_state = 0;
+            nucleo_gpio::gpiox_lckr_reg = 0x00000000;
+        }
+        break;
+#if 0
     case GPIOx_AFRL:
     case GPIOx_AFRH:
 #endif
@@ -142,9 +159,10 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
         *data = 0x0;
         break;
     case GPIOx_OSPEEDER:
-        // pas de sens en simulation
+        *data = 0x0;
         break;
     case GPIOx_PUPDR:
+        *data = 0x0;
         break;
     case GPIOx_IDR:
         //doc : The data input through the I/O are stored into the input data register (GPIOx_IDR), a read-only register
@@ -169,7 +187,7 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
         }
         break;
     case GPIOx_BSRR:
-        *data = 0x0000;
+        *data = 0x0;
         break;
     // case GPIOx_LCKR:
     // case GPIOx_AFRL:

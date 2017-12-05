@@ -105,6 +105,11 @@ public:
     uint32_t gpiox_afrl_reg;
     uint32_t gpiox_afrh_reg;
 
+    uint32_t gpiox_lckr_reg_prev;
+    uint8_t gpiox_lckk;
+    uint8_t gpiox_lck_state;
+    uint8_t gpiox_lock_config;
+
     sc_core::sc_event_or_list m_ev_gpios;
 
     void reset(const uint32_t& moder_rv, const uint32_t& ospeedr_rv, const uint32_t& pupdr_rv) {
@@ -115,7 +120,13 @@ public:
         gpiox_idr_reg = 0x00000000;
         gpiox_odr_reg = 0x00000000;
 	    gpiox_bsrr_reg = 0x00000000;
-
+        gpiox_lckr_reg = 0x00000000;
+        gpiox_afrl_reg = 0x00000000;
+        gpiox_afrh_reg = 0x00000000;
+        
+        gpiox_lckr_reg_prev = 0x00000000;
+        gpiox_lckk = 0;
+        gpiox_lck_state = 0;
     }
 
 
