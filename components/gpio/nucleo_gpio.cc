@@ -62,7 +62,17 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
     switch (ofs) {
     case GPIOx_MODER:
         // bit de config à 00 input, 01 general output, 10 AF, 11 analog
-        nucleo_gpio::gpiox_moder_reg = *data; 
+        for (int i = 0; i < 16; i++) {
+            if (((nucleo_gpio::gpiox_lckr_reg >> i) & 1U) == 0) {
+                uint16_t x = (*data >> i) & 1U;
+                nucleo_gpio::gpiox_moder_reg ^= (-(unsigned long)x ^ nucleo_gpio::gpiox_moder_reg) & (1UL << i);
+                x = (*data >> (i + 1)) & 1U;
+                nucleo_gpio::gpiox_moder_reg ^= (-(unsigned long)x ^ nucleo_gpio::gpiox_moder_reg) & (1UL << (i + 1));
+            } else {
+                bErr = true;
+                return;
+            }
+        }
         break;
     case GPIOx_OTYPER:
         set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_otyper_reg); 
