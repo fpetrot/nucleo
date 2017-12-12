@@ -163,7 +163,7 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
     switch (ofs) {
     case GPIOx_MODER:
         // bit de config à 01 pour mode output (lecture)
-        nucleo_gpio::gpiox_moder_reg = *data;
+        *data = nucleo_gpio::gpiox_moder_reg;
         break;
     case GPIOx_OTYPER:
         *data = 0x0;
