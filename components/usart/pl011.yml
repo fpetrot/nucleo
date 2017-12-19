@@ -1,6 +1,0 @@
-component:
-  implementation: uart-pl011
-  type: uart-pl011
-  class: Pl011
-  include: pl011.h
-  description: PL011 UART

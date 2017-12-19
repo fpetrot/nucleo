@@ -1,0 +1,6 @@
+component:
+  implementation: uart-usart
+  type: uart-usart
+  class: usart
+  include: usart.h
+  description: usart UART
