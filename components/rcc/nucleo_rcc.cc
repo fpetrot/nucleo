@@ -99,7 +99,7 @@ void NucleoRcc::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr){
 	case RCC_APB2LPENR:
 		*data = rcc_apb2lpenr_reg; 
 		break; 
-
+		
     default:
         MLOG_F(SIM, ERR, "%s - Error: ofs=0x%X!\n", __PRETTY_FUNCTION__,
 			   (unsigned int) ofs);
@@ -139,7 +139,7 @@ void NucleoRcc::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr){
 		// System clock must be changed 
 		if(oldclock != (rcc_cfgr_reg & RCC_CFGR_SW)){ 
 			rcc_cfgr_reg &= ~RCC_CFGR_SWS ; // reset system clock status
-			rcc_cfgr_reg |= rcc_cfgr_reg & (RCC_CFGR_SW<<2); // set new system clock status
+			rcc_cfgr_reg |= (rcc_cfgr_reg & RCC_CFGR_SW)<<2; // set new system clock status
 		}
 	
 		break;

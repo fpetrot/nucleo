@@ -21,38 +21,29 @@ platforms:
             address: { 0xe000e000: 0x1000 }
           irq-out: cpu.irq
 
-      flash:
+      # Original flash memory
+      flash-native:
         type: memory
         size: &flash_size 512K
         bindings:
           mem:
             peer: mem-bus
-            # Assume we boot from flash with the appropriate remaping
-            # Boot1 Boot0
-            #   x     0   => remap flash to 0x00000000 at boot
-            # FIXME: Even when aliased in the boot memory space, the related
-            #        memory is still accessible at its original memory space
-            address: { &flash_start 0x0000000: *flash_size }
-          # boot:
-          #   peer: mem-bus
-          #   address: {0x0: *flash_size}
-        
-      flash2:
+            address: { &flash_start 0x08000000 : *flash_size } 
+        readonly: true
+
+
+      # Flash memory for flash boot mode. MUST BE THE SAME THAN FLASH-NATIVE ( identic file-blob )   
+      flash-boot:
         type: memory
         size: *flash_size
         bindings:
           mem:
             peer: mem-bus
-            # Assume we boot from flash with the appropriate remaping
-            # Boot1 Boot0
-            #   x     0   => remap flash to 0x00000000 at boot
-            # FIXME: Even when aliased in the boot memory space, the related
-            #        memory is still accessible at its original memory space
-            address: { 0x08000000 : *flash_size }
-          # boot:
-          #   peer: mem-bus
-          #   address: {0x0: *flash_size}
+            address: { 0x0000000: *flash_size }
+        readonly: true
 
+
+         
       # Flash-interface Stub 
       flash-interface:
         type: stub
