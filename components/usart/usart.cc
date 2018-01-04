@@ -36,7 +36,7 @@ void usart::read_thread()
     while(1) {
         p_uart.recv(data);  //rx->recv(data)
         for (auto c : data) {
-            MLOG_F(APP, TRC, "rcv_thread: got a char (0x%02x)\n", c);
+            MLOG_F(SIM, DBG, "rcv_thread: got a char (0x%02x)\n", c);
 
             while (state.read_count == 1) //buffer 1 seul char en reception
                 wait(evRead);             //buffer plein, attente d'une lecture a partir du bus
@@ -66,7 +66,7 @@ void usart::usart_init_register(void)
 usart::usart(sc_core::sc_module_name name, const Parameters &params, ConfigManager &c)
     : Slave(name, params, c)
     , p_irq("irq")
-    , p_uart("uart")
+    , p_uart("usart")
 {
     usart_init_register();
 

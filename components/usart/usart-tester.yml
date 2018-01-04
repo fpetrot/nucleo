@@ -1,0 +1,6 @@
+component:
+  implementation: uart-usart-tester
+  type: uart-usart-tester
+  class: usartTester
+  include: usart-tester.h
+  description: usart UART compenent for external connection test
