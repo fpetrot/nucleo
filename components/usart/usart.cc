@@ -193,19 +193,21 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data,
         if(TE){ //si TE: transmision enable à true, alors send contenue TDR
           if(M){ //8 bits message
             MLOG_F(SIM, DBG, "follow %s prepare to send 9bits 0x%lx\n", __FUNCTION__, (unsigned long) state.USART_TDR);
-            std::vector<data9bit> data;
-            data9bit b;
-            b.data=state.USART_TDR;
-            data.push_back(b); //on envoie le contenue du transmission data register
-            p_uart.send(data);
+            std::vector<data9bit> data_v;
+            data9bit data9;
+            data9.data=state.USART_TDR;
+            data9.stopBit=(state.USART_CR2 >> STOP0_POS) & 0b11;
+            data_v.push_back(data9); //on envoie le contenue du transmission data register
+            p_uart.send(data_v);
           }
           else{
             MLOG_F(SIM, DBG, "follow %s prepare to send 8bits 0x%lx\n", __FUNCTION__, (unsigned long) state.USART_TDR);
-            std::vector<data8bit> data;
-            data8bit b;
-            b.data=state.USART_TDR;
-            data.push_back(b); //on envoie le contenue du transmission data register
-            p_uart.send(data);
+            std::vector<data8bit> data_v;
+            data8bit data8;
+            data8.data=state.USART_TDR;
+            data8.stopBit=(state.USART_CR2 >> STOP0_POS) & 0b11;
+            data_v.push_back(data8); //on envoie le contenue du transmission data register
+            p_uart.send(data_v);
           }
         }
 

@@ -24,11 +24,21 @@
 
 typedef struct data9bit_s{
   uint16_t data : 9;
+  char stopBit : 3;
+      // 00 :1    bit stop
+      // 01 :0.5  bit stop
+      // 10 :2    bit stop
+      // 11 :1,5  bit stop
   // uint16_t stopBit : 2;
 }data9bit;
 
 typedef struct data8bit_s{
   uint16_t data : 8;
+  char stopBit : 3;
+      // 00 :1    bit stop
+      // 01 :0.5  bit stop
+      // 10 :2    bit stop
+      // 11 :1,5  bit stop
 }data8bit;
 
 class UsartDeviceSystemCInterface : public virtual sc_core::sc_interface {

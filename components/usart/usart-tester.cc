@@ -45,30 +45,63 @@ usartTester::~usartTester()
 
 void usartTester::read_thread8bit()
 {
-    std::vector<data8bit> data8;
+  std::vector<data8bit> data8;
 
-    while(1) {
-        p_uart.recv(data8);  //rx->recv(data)
-        for (auto c : data8) {
-            MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits  (0x%02x)\n", c);
-
-        }
+  while(1) {
+    p_uart.recv(data8);  //rx->recv(data)
+    for (auto c : data8) {
+      switch (c.stopBit){
+        // 00 :1    bit stop
+        // 01 :0.5  bit stop
+        // 10 :2    bit stop
+        // 11 :1,5  bit stop
+        case 0:
+          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/1 Stop  (0x%02x)\n", c.data);
+        break;
+        case 1:
+          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/0.5 Stop  (0x%02x)\n", c.data);
+        break;
+        case 2:
+          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/2 Stop  (0x%02x)\n", c.data);
+        break;
+        case 3:
+          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/1.5 Stop  (0x%02x)\n", c.data);
+        break;
+        default:
+          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/ERROR Stop  (0x%02x)\n", c.data);
+      }
     }
-
+  }
 }
 
 void usartTester::read_thread9bit()
 {
-    std::vector<data9bit> data9;
-
-    while(1) {
-        p_uart.recv(data9);  //rx->recv(data)
-        for (auto c : data9) {
-            MLOG_F(SIM, DBG, "rcv_thread: got a 9 bit (0x%02x)\n", c);
-
-        }
+  std::vector<data9bit> data9;
+  while(1) {
+    p_uart.recv(data9);  //rx->recv(data)
+    for (auto c : data9) {
+      switch (c.stopBit){
+        // 00 :1    bit stop
+        // 01 :0.5  bit stop
+        // 10 :2    bit stop
+        // 11 :1,5  bit stop
+        case 0:
+          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/1 Stop  (0x%02x)\n", c.data);
+        break;
+        case 1:
+          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/0.5 Stop  (0x%02x)\n", c.data);
+        break;
+        case 2:
+          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/2 Stop  (0x%02x)\n", c.data);
+        break;
+        case 3:
+          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/1.5 Stop  (0x%02x)\n", c.data);
+        break;
+        default:
+          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/ERROR Stop  (0x%02x)\n", c.data);
+      }
     }
-
+  }
 }
             //
             // if( c == 0x15){ //si TE: transmision enable à true, alors send contenue TDR
