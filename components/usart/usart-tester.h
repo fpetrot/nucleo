@@ -22,7 +22,7 @@
 
 #include <rabbits/component/slave.h>
 #include <rabbits/component/port/out.h>
-#include <rabbits/component/port/usart.h>
+#include "usartPort.h"
 
 
 class usartTester : public Component
@@ -33,7 +33,8 @@ usartTester(sc_core::sc_module_name name, const Parameters &params, ConfigManage
 virtual ~usartTester();
 
 private:
-void read_thread();
+void read_thread8bit();
+void read_thread9bit();
 
 
 public:

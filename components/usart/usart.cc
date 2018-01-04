@@ -31,19 +31,24 @@ using namespace sc_core;
 
 void usart::read_thread()
 {
-    std::vector<uint8_t> data;
+    std::vector<data8bit> data8;
+    std::vector<data9bit> data9;
 
     while(1) {
-        p_uart.recv(data);  //rx->recv(data)
-        for (auto c : data) {
-            MLOG_F(SIM, DBG, "rcv_thread: got a char (0x%02x)\n", c);
-
-            while (state.read_count == 1) //buffer 1 seul char en reception
-                wait(evRead);             //buffer plein, attente d'une lecture a partir du bus
-
-            state.read_buf[0] = c;
-            state.read_count++;
+      if (M){  //USARTCR1 bit 12: M Word length
+        p_uart.recv(data8);  //rx->recv(data)
+        for (auto c : data8) {
+            MLOG_F(SIM, DBG, "rcv_thread: got a 8 bit data (0x%02x)\n", c);
+            // while (state.read_count == 1) //buffer 1 seul char en reception
+            //     wait(evRead);             //buffer plein, attente d'une lecture a partir du bus
+            // state.read_count++;
+          }
+        }else{
+          p_uart.recv(data9);  //rx->recv(data)
+          for (auto c : data9) {
+              MLOG_F(SIM, DBG, "rcv_thread: got a 8 bit data (0x%02x)\n", c);
         }
+      }
         //update RXNE in USART_SR:
         state.USART_SR |= 1<<RXNE_POS;
         irq_update.notify();
@@ -129,7 +134,7 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data,
         {
           bErr = true;
           break;
-        } //les bits reservés doivent rester aux valeurs de reset
+        }
 
         state.USART_SR = value;
 
@@ -145,7 +150,7 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data,
         {
           bErr = true;
           break;
-        } //les bits reservés doivent rester aux valeurs de reset
+        }
 
         state.USART_TDR = value;
       break;
@@ -161,7 +166,7 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data,
         {
           bErr = true;
           break;
-        } //les bits reservés doivent rester aux valeurs de reset
+        }
         state.USART_BRR = value;
       break;
 
@@ -181,15 +186,29 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data,
           // printf("Readonly: %d \n",    ((value & USART_CR1_MSK_R) != (state.USART_CR1 & USART_CR1_MSK_R) ));
           bErr = true;
           break;
-        } //les bits reservés doivent rester aux valeurs de reset
-        if( value & (1 << TE_POS)){ //si TE: transmision enable à true, alors send contenue TDR
-          MLOG_F(SIM, DBG, "follow %s prepare to send 0x%lx\n", __FUNCTION__, (unsigned long) state.USART_TDR);
-          std::vector<uint8_t> data;
-          data.push_back(uint8_t(state.USART_TDR)); //on envoie le contenue du transmission data register
-          p_uart.send(data);
         }
 
-        state.USART_CR1 = value;
+        state.USART_CR1 = value;  //update CR1
+
+        if(TE){ //si TE: transmision enable à true, alors send contenue TDR
+          if(M){ //8 bits message
+            MLOG_F(SIM, DBG, "follow %s prepare to send 9bits 0x%lx\n", __FUNCTION__, (unsigned long) state.USART_TDR);
+            std::vector<data9bit> data;
+            data9bit b;
+            b.data=state.USART_TDR;
+            data.push_back(b); //on envoie le contenue du transmission data register
+            p_uart.send(data);
+          }
+          else{
+            MLOG_F(SIM, DBG, "follow %s prepare to send 8bits 0x%lx\n", __FUNCTION__, (unsigned long) state.USART_TDR);
+            std::vector<data8bit> data;
+            data8bit b;
+            b.data=state.USART_TDR;
+            data.push_back(b); //on envoie le contenue du transmission data register
+            p_uart.send(data);
+          }
+        }
+
 
 
       break;
@@ -205,7 +224,7 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data,
         {
           bErr = true;
           break;
-        } //les bits reservés doivent rester aux valeurs de reset
+        }
         state.USART_CR2 = value;
       break;
 
@@ -220,7 +239,7 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data,
         {
           bErr = true;
           break;
-        } //les bits reservés doivent rester aux valeurs de reset
+        }
         state.USART_CR3 = value;
       break;
 
@@ -235,7 +254,7 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data,
         {
           bErr = true;
           break;
-        } //les bits reservés doivent rester aux valeurs de reset
+        }
         state.USART_GTPR = value;
       break;
 

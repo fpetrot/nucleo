@@ -34,7 +34,8 @@ usartTester::usartTester(sc_core::sc_module_name name, const Parameters &params,
     : Component(name, c)
     ,p_uart("usart")
 {
-    SC_THREAD(read_thread);
+    SC_THREAD(read_thread8bit);
+    SC_THREAD(read_thread9bit);
 }
 
 usartTester::~usartTester()
@@ -42,28 +43,42 @@ usartTester::~usartTester()
 }
 
 
-void usartTester::read_thread()
+void usartTester::read_thread8bit()
 {
-    std::vector<uint8_t> data;
+    std::vector<data8bit> data8;
 
     while(1) {
-        p_uart.recv(data);  //rx->recv(data)
-        for (auto c : data) {
-            MLOG_F(SIM, DBG, "rcv_thread: got a char (0x%02x)\n", c);
+        p_uart.recv(data8);  //rx->recv(data)
+        for (auto c : data8) {
+            MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits  (0x%02x)\n", c);
 
-            if( c == 0x15){ //si TE: transmision enable à true, alors send contenue TDR
-              MLOG_F(SIM, DBG, "follow %s prepare to send 0x%lx\n", __FUNCTION__, (unsigned long) 0x16);
-              std::vector<uint8_t> data;
-              data.push_back(uint8_t(0x16)); //on envoie le contenue du transmission data register
-              p_uart.send(data);
-
-              wait(12, SC_NS);
-
-              std::vector<uint8_t> dara;
-              dara.push_back(uint8_t(0x16)); //on envoie le contenue du transmission data register
-              p_uart.send(dara);
-            }
         }
     }
 
 }
+
+void usartTester::read_thread9bit()
+{
+    std::vector<data9bit> data9;
+
+    while(1) {
+        p_uart.recv(data9);  //rx->recv(data)
+        for (auto c : data9) {
+            MLOG_F(SIM, DBG, "rcv_thread: got a 9 bit (0x%02x)\n", c);
+
+        }
+    }
+
+}
+            //
+            // if( c == 0x15){ //si TE: transmision enable à true, alors send contenue TDR
+            //   MLOG_F(SIM, DBG, "follow %s prepare to send 0x%lx\n", __FUNCTION__, (unsigned long) 0x16);
+            //   std::vector<uint8_t> data8;
+            //   data8.push_back(uint8_t(0x16)); //on envoie le contenue du transmission data register
+            //   p_uart.send(data8);
+            //
+            //   wait(12, SC_NS);
+            //
+            //   std::vector<uint8_t> dara;
+            //   dara.push_back(uint8_t(0x16)); //on envoie le contenue du transmission data register
+            //   p_uart.send(dara);

@@ -22,7 +22,7 @@
 
 #include <rabbits/component/slave.h>
 #include <rabbits/component/port/out.h>
-#include <rabbits/component/port/usart.h>
+#include "usartPort.h"
 
 #define READ_BUF_SIZE           1
 
