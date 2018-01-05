@@ -66,8 +66,15 @@ private:
     void recv(std::vector<data8bit> &data)
     {
         if (m_buffer8bit.empty()) {
+          printf("waiting m_recv_ev\n");
           sc_core::wait(m_recv_ev);
         }
+
+      printf("recv: buffer state:\n");
+      for (auto c : m_buffer8bit) {
+        printf("8 bits/0x%01x Stop  (0x%02x)\n",c.stopBit, c.data);
+      }
+
 
         /* TODO: avoid data copy */
         data.clear();
@@ -90,6 +97,15 @@ private:
 public:
     void send(std::vector<data8bit> &data)
     {
+      printf("send: buffer state:\n");
+      for (auto c : m_buffer8bit) {
+        printf("8 bits/0x%01x Stop  (0x%02x)\n",c.stopBit, c.data);
+      }
+      printf("data to send:\n");
+      for (auto c : data) {
+        printf("8 bits/0x%01x Stop  (0x%02x)\n",c.stopBit, c.data);
+      }
+
         m_buffer8bit.insert(m_buffer8bit.end(), data.begin(), data.end());
         request_update();
     }

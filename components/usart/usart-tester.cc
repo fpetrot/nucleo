@@ -83,6 +83,7 @@ void usartTester::send_thread8bit(){
   data_v.push_back(frame);
   MLOG_F(SIM, DBG, "%s: send 8 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
   p_uart.send(data_v);
+  data_v.clear();
 
   wait(32,SC_NS);
   frame.data = 20;
@@ -90,6 +91,7 @@ void usartTester::send_thread8bit(){
   data_v.push_back(frame);
   MLOG_F(SIM, DBG, "%s: send 8 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
   p_uart.send(data_v);
+  data_v.clear();
 
 
   wait(32,SC_NS);
@@ -98,6 +100,7 @@ void usartTester::send_thread8bit(){
   data_v.push_back(frame);
   MLOG_F(SIM, DBG, "%s: send 8 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
   p_uart.send(data_v);
+  data_v.clear();
 
 }
 
@@ -114,6 +117,7 @@ void usartTester::send_thread9bit(){
   data_v.push_back(frame);
   MLOG_F(SIM, DBG, "%s: send 9 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
   p_uart.send(data_v);
+  data_v.clear();
 
   wait(32,SC_NS);
   frame.data = 2;
@@ -121,6 +125,7 @@ void usartTester::send_thread9bit(){
   data_v.push_back(frame);
   MLOG_F(SIM, DBG, "%s: send 9 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
   p_uart.send(data_v);
+  data_v.clear();
 
 
   wait(32,SC_NS);
@@ -129,6 +134,7 @@ void usartTester::send_thread9bit(){
   data_v.push_back(frame);
   MLOG_F(SIM, DBG, "%s: send 9 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
   p_uart.send(data_v);
+  data_v.clear();
 
   wait(200,SC_MS);
 
@@ -137,4 +143,5 @@ void usartTester::send_thread9bit(){
   data_v.push_back(frame);
   MLOG_F(SIM, DBG, "%s: send 9 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
   p_uart.send(data_v);
+  data_v.clear();
 }
