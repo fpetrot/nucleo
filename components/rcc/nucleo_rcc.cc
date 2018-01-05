@@ -113,6 +113,7 @@ void NucleoRcc::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr){
 	
 	switch(ofs){
 	case RCC_CR:
+		rcc_cr_reg &= ~RCC_CR_RW_MASK;
 		rcc_cr_reg |= *data & RCC_CR_RW_MASK;
 		// Set clock ready directly when set ON
 		if( rcc_cr_reg & RCC_CR_HSION)
@@ -126,6 +127,7 @@ void NucleoRcc::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr){
 		break;
 
 	case RCC_PLLCFGR:
+		rcc_pllcfgr_reg &= ~RCC_PLLCFGR_RW_MASK;
 		rcc_pllcfgr_reg |= *data & RCC_PLLCFGR_RW_MASK;
 		// Use PLLSRC to set CR_PLLXXX bits
 		if( rcc_pllcfgr_reg & RCC_PLLCFGR_PLLSRC)
@@ -133,7 +135,8 @@ void NucleoRcc::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr){
 		break; 
 		
 	case RCC_CFGR:{
-		uint8_t oldclock = rcc_cfgr_reg & RCC_CFGR_SW; 
+		uint8_t oldclock = rcc_cfgr_reg & RCC_CFGR_SW;
+		rcc_cfgr_reg &= ~RCC_CFGR_RW_MASK;
 		rcc_cfgr_reg |= *data & RCC_CFGR_RW_MASK;
 
 		// System clock must be changed 
