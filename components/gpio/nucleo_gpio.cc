@@ -62,7 +62,17 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
     switch (ofs) {
     case GPIOx_MODER:
         // bit de config à 00 input, 01 general output, 10 AF, 11 analog
-        nucleo_gpio::gpiox_moder_reg = *data; 
+        for (int i = 0; i < 16; i++) {
+            if (((nucleo_gpio::gpiox_lckr_reg >> i) & 1U) == 0) {
+                uint16_t x = (*data >> i) & 1U;
+                nucleo_gpio::gpiox_moder_reg ^= (-(unsigned long)x ^ nucleo_gpio::gpiox_moder_reg) & (1UL << i);
+                x = (*data >> (i + 1)) & 1U;
+                nucleo_gpio::gpiox_moder_reg ^= (-(unsigned long)x ^ nucleo_gpio::gpiox_moder_reg) & (1UL << (i + 1));
+            } else {
+                bErr = true;
+                return;
+            }
+        }
         break;
     case GPIOx_OTYPER:
         set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_otyper_reg); 
@@ -93,24 +103,6 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
         }
         break;
     case GPIOx_BSRR:
-        nucleo_gpio::gpiox_bsrr_reg = *data;
-        /* Set the BR part (bit 31 downto 16)
-         */
-        for(int i=31; i>=16; i--) {
-            // check bit state
-            if(((nucleo_gpio::gpiox_bsrr_reg >> i) & 1U) == 1) {
-                // reset (clear) the corresponding bit
-                nucleo_gpio::gpiox_odr_reg &= ~(1UL << (i-16)); 
-            }
-        }
-        /* Set the BS part (bit 15 downto 0)
-         */
-        for(int i= 15; i>=0; i--) {
-            if(((nucleo_gpio::gpiox_bsrr_reg >> i) & 1U) == 1) { 
-                // Set the corresponding bit ODR
-                nucleo_gpio::gpiox_odr_reg |= 1UL << i;
-            }
-        }
         break;
     case GPIOx_LCKR:
         nucleo_gpio::gpiox_lckr_reg = *data;
@@ -153,7 +145,7 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
     switch (ofs) {
     case GPIOx_MODER:
         // bit de config à 01 pour mode output (lecture)
-        nucleo_gpio::gpiox_moder_reg = *data;
+        *data = nucleo_gpio::gpiox_moder_reg;
         break;
     case GPIOx_OTYPER:
         *data = 0x0;
@@ -199,6 +191,68 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
         return;
     }
     bErr = false;
+}
+
+void nucleo_gpio::bus_cb_write_16(uint64_t ofs, uint16_t *data, bool &bErr)
+{
+    switch (ofs) {
+    case GPIOx_BSRR:
+        nucleo_gpio::gpiox_bsrr_reg = *data;
+        /* Set the BR part (bit 31 downto 16)
+         */
+        for(int i=31; i>=16; i--) {
+            // check bit state
+            if(((nucleo_gpio::gpiox_bsrr_reg >> i) & 1U) == 1) {
+                // reset (clear) the corresponding bit
+                nucleo_gpio::gpiox_odr_reg &= ~(1UL << (i-16));
+                nucleo_gpio::gpiox_idr_reg &= ~(1UL << (i-16));
+            }
+        }
+        /* Set the BS part (bit 15 downto 0)
+         */
+        for(int i= 15; i>=0; i--) {
+            if(((nucleo_gpio::gpiox_bsrr_reg >> i) & 1U) == 1) { 
+                // Set the corresponding bit ODR
+                nucleo_gpio::gpiox_odr_reg |= 1UL << i;
+                nucleo_gpio::gpiox_idr_reg |= 1UL << i;
+            }
+        }
+        break;
+    default :
+        MLOG_F(SIM, ERR, "Bad %s::%s ofs=0x%X!\n", name(), __FUNCTION__,
+               (unsigned int) ofs);
+        bErr = true;
+        return;
+    }
+    bErr = false;
+
+}
+
+void nucleo_gpio::bus_cb_read_16(uint64_t ofs, uint16_t *data, bool &bErr)
+{
+    switch (ofs) {
+    case GPIOx_IDR:
+        //doc : The data input through the I/O are stored into the input data register (GPIOx_IDR), a read-only register
+        *data = 0x0;
+        for (int i = 0; i < 16; i++) {
+            if ((((nucleo_gpio::gpiox_moder_reg) >> (i * 2) & 0x1) == 0x1)
+                    && (((nucleo_gpio::gpiox_moder_reg) >> ((i * 2) + 1) & 0x1) == 0x0)) {
+                uint16_t x = (nucleo_gpio::gpiox_idr_reg >> i) & 1U;
+                *data ^= (-(unsigned long)x ^ *data) & (1UL << i);
+            }
+        }
+        break;
+    case GPIOx_BSRR:
+        *data = 0;
+        break;
+    default:
+        MLOG_F(SIM, ERR, "Bad %s::%s ofs=0x%X!\n", name(), __FUNCTION__,
+               (unsigned int) ofs);
+        bErr = true;
+        return;
+    }
+    bErr = false;
+
 }
 
 void nucleo_gpio::gpio_thread()

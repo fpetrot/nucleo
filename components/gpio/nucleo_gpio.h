@@ -142,6 +142,9 @@ private:
 
     void bus_cb_read_32(uint64_t addr, uint32_t *data, bool &bErr);
     void bus_cb_write_32(uint64_t addr, uint32_t *data, bool &bErr);
+    void bus_cb_read_16(uint64_t ofs, uint16_t *data, bool &bErr);
+    void bus_cb_write_16(uint64_t ofs, uint16_t *data, bool &bErr);
+
 
     void gpio_thread();
 

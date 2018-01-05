@@ -17,12 +17,12 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef _PL011_H
-#define _PL011_H
+#ifndef _usart_H
+#define _usart_H
 
 #include <rabbits/component/slave.h>
 #include <rabbits/component/port/out.h>
-#include <rabbits/component/port/uart.h>
+#include "usartPort.h"
 
 #define READ_BUF_SIZE           1
 
@@ -75,6 +75,7 @@
 #define USART_CR3_MSK_RW            0x00000FFF
 #define USART_GTPR_MSK_RW           0x0000FFFF
 
+//////////////////////////////////////////////
 //Reset Value of the registers
 #define USART_SR_RST_VALUE          0x00C00000
 #define USART_DR_RST_VALUE          0x00000000
@@ -204,7 +205,7 @@
 
 #define GT           ((state.USART_GTPR >> 8 ) & 0b11111111)       // [15:8]
 #define PCS          ((state.USART_GTPR      ) & 0b11111111)       // [7:0]
-#define DR           ((state.USART_ DR       ) & 0b11111111)       // [7:0]
+#define DR           ((state.USART_DR        ) & 0b11111111)       // [7:0]
 #define DIV_MANTISSA ((state.USART_BRR >> 4  ) & 0b111111111111)   // [15:4]
 #define DIV_FRACTION ((state.USART_BRR       ) & 0b1111)           // [3:0]
 
@@ -214,25 +215,29 @@
 struct tty_state
 {
         uint32_t USART_SR;
-        uint32_t USART_DR;
+        //uint32_t USART_DR;
+        uint32_t USART_TDR; //transmit data register
+        uint32_t USART_RDR; //receive data register
+
         uint32_t USART_BRR;
         uint32_t USART_CR1;
         uint32_t USART_CR2;
         uint32_t USART_CR3;
         uint32_t USART_GTPR;
 
-        uint8_t read_single;
-        uint8_t read_buf;
-
+        uint8_t read_buf[READ_BUF_SIZE];
+        int read_pos;
         int read_count;
+
+
 };
 
-class Pl011 : public Slave<>
+class usart : public Slave<>
 {
 public:
-SC_HAS_PROCESS (Pl011);
-Pl011(sc_core::sc_module_name name, const Parameters &params, ConfigManager &c);
-virtual ~Pl011();
+SC_HAS_PROCESS (usart);
+usart(sc_core::sc_module_name name, const Parameters &params, ConfigManager &c);
+virtual ~usart();
 
 private:
 void bus_cb_read(uint64_t addr, uint8_t *data, unsigned int len,
@@ -244,11 +249,11 @@ sc_core::sc_event irq_update;
 void read_thread();
 void irq_update_thread();
 
-void Pl011_init_register(void);
+void usart_init_register(void);
 
 public:
 OutPort<bool> p_irq;
-UartPort p_uart;
+UsartPort p_uart;
 
 private:
 sc_core::sc_event evRead;
