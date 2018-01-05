@@ -36,6 +36,9 @@ usartTester::usartTester(sc_core::sc_module_name name, const Parameters &params,
 {
     SC_THREAD(read_thread8bit);
     SC_THREAD(read_thread9bit);
+
+    SC_THREAD(send_thread8bit);
+    SC_THREAD(send_thread9bit);
 }
 
 usartTester::~usartTester()
@@ -50,26 +53,7 @@ void usartTester::read_thread8bit()
   while(1) {
     p_uart.recv(data8);  //rx->recv(data)
     for (auto c : data8) {
-      switch (c.stopBit){
-        // 00 :1    bit stop
-        // 01 :0.5  bit stop
-        // 10 :2    bit stop
-        // 11 :1,5  bit stop
-        case 0:
-          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/1 Stop  (0x%02x)\n", c.data);
-        break;
-        case 1:
-          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/0.5 Stop  (0x%02x)\n", c.data);
-        break;
-        case 2:
-          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/2 Stop  (0x%02x)\n", c.data);
-        break;
-        case 3:
-          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/1.5 Stop  (0x%02x)\n", c.data);
-        break;
-        default:
-          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/ERROR Stop  (0x%02x)\n", c.data);
-      }
+      MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/0x%01x Stop  (0x%02x)\n",c.stopBit, c.data);
     }
   }
 }
@@ -80,38 +64,77 @@ void usartTester::read_thread9bit()
   while(1) {
     p_uart.recv(data9);  //rx->recv(data)
     for (auto c : data9) {
-      switch (c.stopBit){
-        // 00 :1    bit stop
-        // 01 :0.5  bit stop
-        // 10 :2    bit stop
-        // 11 :1,5  bit stop
-        case 0:
-          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/1 Stop  (0x%02x)\n", c.data);
-        break;
-        case 1:
-          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/0.5 Stop  (0x%02x)\n", c.data);
-        break;
-        case 2:
-          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/2 Stop  (0x%02x)\n", c.data);
-        break;
-        case 3:
-          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/1.5 Stop  (0x%02x)\n", c.data);
-        break;
-        default:
-          MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/ERROR Stop  (0x%02x)\n", c.data);
-      }
+      MLOG_F(SIM, DBG, "rcv_thread: got a 9 bits/0x%01x Stop  (0x%02x)\n",c.stopBit, c.data);
     }
   }
 }
-            //
-            // if( c == 0x15){ //si TE: transmision enable à true, alors send contenue TDR
-            //   MLOG_F(SIM, DBG, "follow %s prepare to send 0x%lx\n", __FUNCTION__, (unsigned long) 0x16);
-            //   std::vector<uint8_t> data8;
-            //   data8.push_back(uint8_t(0x16)); //on envoie le contenue du transmission data register
-            //   p_uart.send(data8);
-            //
-            //   wait(12, SC_NS);
-            //
-            //   std::vector<uint8_t> dara;
-            //   dara.push_back(uint8_t(0x16)); //on envoie le contenue du transmission data register
-            //   p_uart.send(dara);
+
+
+//SENDER THREAD FOR TEST PURPOSE
+void usartTester::send_thread8bit(){
+  std::vector<data8bit> data_v;
+  data8bit frame;
+
+  wait(1,SC_MS);
+
+  wait(32,SC_NS);
+  frame.data = 10;
+  frame.stopBit = 0b10;
+  data_v.push_back(frame);
+  MLOG_F(SIM, DBG, "%s: send 8 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
+  p_uart.send(data_v);
+
+  wait(32,SC_NS);
+  frame.data = 20;
+  frame.stopBit = 0b10;
+  data_v.push_back(frame);
+  MLOG_F(SIM, DBG, "%s: send 8 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
+  p_uart.send(data_v);
+
+
+  wait(32,SC_NS);
+  frame.data = 30;
+  frame.stopBit = 0b10;
+  data_v.push_back(frame);
+  MLOG_F(SIM, DBG, "%s: send 8 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
+  p_uart.send(data_v);
+
+}
+
+//SENDER THREAD FOR TEST PURPOSE
+void usartTester::send_thread9bit(){
+  std::vector<data9bit> data_v;
+  data9bit frame;
+
+  wait(5,SC_MS);
+
+  wait(32,SC_NS);
+  frame.data = 1;
+  frame.stopBit = 0b10;
+  data_v.push_back(frame);
+  MLOG_F(SIM, DBG, "%s: send 9 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
+  p_uart.send(data_v);
+
+  wait(32,SC_NS);
+  frame.data = 2;
+  frame.stopBit = 0b10;
+  data_v.push_back(frame);
+  MLOG_F(SIM, DBG, "%s: send 9 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
+  p_uart.send(data_v);
+
+
+  wait(32,SC_NS);
+  frame.data = 3;
+  frame.stopBit = 0b10;
+  data_v.push_back(frame);
+  MLOG_F(SIM, DBG, "%s: send 9 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
+  p_uart.send(data_v);
+
+  wait(200,SC_MS);
+
+  frame.data = 4;
+  frame.stopBit = 0b10;
+  data_v.push_back(frame);
+  MLOG_F(SIM, DBG, "%s: send 9 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
+  p_uart.send(data_v);
+}

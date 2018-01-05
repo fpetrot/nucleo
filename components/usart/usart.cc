@@ -36,17 +36,17 @@ void usart::read_thread()
 
     while(1) {
       if (M){  //USARTCR1 bit 12: M Word length
-        p_uart.recv(data8);  //rx->recv(data)
-        for (auto c : data8) {
-            MLOG_F(SIM, DBG, "rcv_thread: got a 8 bit data (0x%02x)\n", c);
+        p_uart.recv(data9);  //rx->recv(data)
+        for (auto c : data9) {
+            MLOG_F(SIM, DBG, "%s: got a 9 bits/0x%01x Stop  (0x%02x)\n",__FUNCTION__,c.stopBit, c.data);
             // while (state.read_count == 1) //buffer 1 seul char en reception
             //     wait(evRead);             //buffer plein, attente d'une lecture a partir du bus
             // state.read_count++;
           }
         }else{
-          p_uart.recv(data9);  //rx->recv(data)
-          for (auto c : data9) {
-              MLOG_F(SIM, DBG, "rcv_thread: got a 8 bit data (0x%02x)\n", c);
+          p_uart.recv(data8);  //rx->recv(data)
+          for (auto c : data8) {
+              MLOG_F(SIM, DBG, "%s: got a 8 bits/0x%01x Stop  (0x%02x)\n",__FUNCTION__,c.stopBit, c.data);
         }
       }
         //update RXNE in USART_SR:
@@ -118,7 +118,7 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data,
 
     bErr = false;
 
-    MLOG_F(SIM, DBG, "%s to 0x%lx - value 0x%lx\n", __FUNCTION__, (unsigned long) ofs,
+    MLOG_F(SIM, DBG, "%s: to 0x%lx - value 0x%lx\n", __FUNCTION__, (unsigned long) ofs,
             (unsigned long) value);
 
     switch (ofs) {
@@ -192,21 +192,21 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data,
 
         if(TE){ //si TE: transmision enable à true, alors send contenue TDR
           if(M){ //8 bits message
-            MLOG_F(SIM, DBG, "follow %s prepare to send 9bits 0x%lx\n", __FUNCTION__, (unsigned long) state.USART_TDR);
             std::vector<data9bit> data_v;
             data9bit data9;
             data9.data=state.USART_TDR;
             data9.stopBit=(state.USART_CR2 >> STOP0_POS) & 0b11;
             data_v.push_back(data9); //on envoie le contenue du transmission data register
+            MLOG_F(SIM, DBG, "%s: send 9bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__, data9.stopBit, data9.data);
             p_uart.send(data_v);
           }
           else{
-            MLOG_F(SIM, DBG, "follow %s prepare to send 8bits 0x%lx\n", __FUNCTION__, (unsigned long) state.USART_TDR);
             std::vector<data8bit> data_v;
             data8bit data8;
             data8.data=state.USART_TDR;
             data8.stopBit=(state.USART_CR2 >> STOP0_POS) & 0b11;
             data_v.push_back(data8); //on envoie le contenue du transmission data register
+            MLOG_F(SIM, DBG, "%s: send 8bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__, data8.stopBit, data8.data);
             p_uart.send(data_v);
           }
         }
@@ -278,8 +278,6 @@ void usart::bus_cb_read(uint64_t ofs, uint8_t *data,
 
     bErr = false;
 
-    MLOG_F(SIM, DBG, "%s to 0x%lx\n", __FUNCTION__, (unsigned long) ofs);
-
     switch (ofs) {
 
       case USART_SR_OFS   :
@@ -309,4 +307,7 @@ void usart::bus_cb_read(uint64_t ofs, uint8_t *data,
                 (unsigned int) ofs);
         bErr = true;
     }
+
+    MLOG_F(SIM, DBG, "%s: to 0x%lx value %x\n", __FUNCTION__, (unsigned long) ofs, *pdata);
+
 }

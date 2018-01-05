@@ -33,8 +33,15 @@ usartTester(sc_core::sc_module_name name, const Parameters &params, ConfigManage
 virtual ~usartTester();
 
 private:
+
+template <typename data_type>
+void read_thread();
+
 void read_thread8bit();
 void read_thread9bit();
+
+void send_thread8bit();
+void send_thread9bit();
 
 
 public:
