@@ -31,27 +31,29 @@ using namespace sc_core;
 
 void usart::read_thread()
 {
-    std::vector<data8bit> data8;
-    std::vector<data9bit> data9;
+    usart_data data_recv;
 
     while(1) {
-      if (M){  //USARTCR1 bit 12: M Word length
-        p_uart.recv(data9);  //rx->recv(data)
-        for (auto c : data9) {
-            MLOG_F(SIM, DBG, "%s: got a 9 bits/0x%01x Stop  (0x%02x)\n",__FUNCTION__,c.stopBit, c.data);
-            // while (state.read_count == 1) //buffer 1 seul char en reception
-            //     wait(evRead);             //buffer plein, attente d'une lecture a partir du bus
-            // state.read_count++;
-          }
-        }else{
-          p_uart.recv(data8);  //rx->recv(data)
-          for (auto c : data8) {
-              MLOG_F(SIM, DBG, "%s: got a 8 bits/0x%01x Stop  (0x%02x)\n",__FUNCTION__,c.stopBit, c.data);
-        }
+      p_uart.recv(data_recv);  //rx->recv(data)
+      MLOG_F(SIM, DBG, "%s: got a %d (M:%d) bits/0x%01x Stop  (0x%02x)\n",__FUNCTION__,data_recv.length ?9:8,M ,data_recv.stopBit, data_recv.data);
+      if (((M) ^ data_recv.length)){ //nb de bit recu =/= nb de bit attendu
+        MLOG_F(SIM, DBG, "%s: got a %d bits but expect %d\n",__FUNCTION__, data_recv.length ?9:8 , M ?9:8);
       }
-        //update RXNE in USART_SR:
-        state.USART_SR |= 1<<RXNE_POS;
-        irq_update.notify();
+
+      //update USART_RDR_SR, the data are in the shift register
+      if(PCE){  //parity control enable
+        int count=0 , i;
+        for (i=0; i<(M?8:7) ; i++){
+          count+=(data_recv.data>>i)&1; //counting set bits in data
+        }
+        if ((count%2)!=data_recv.data>>(M?9:8)){  //MSB is parity bit
+          MLOG_F(SIM, DBG, "%s: ERROR: parity check\n",__FUNCTION__);
+
+        }else  state.USART_RDR_SR = data_recv.data & M?255:127; //masking of MSB
+      }else state.USART_RDR_SR = data_recv.data;
+      //update RXNE in USART_SR:
+      state.USART_SR |= 1<<RXNE_POS;
+      irq_update.notify();
     }
 
 }
@@ -103,11 +105,9 @@ void usart::irq_update_thread()
                 (LBD   && LBDIE)  ||
                 (( FE || NF || ORE) && EIE && DMAR )));
 
-      // before   flags = (state.int_rx || state.int_tx) & state.int_pending;
-
       MLOG_F(SIM, DBG, "%s - %s\n", __FUNCTION__, (flags != 0) ? "1" : "0");
 
-      p_irq.sc_p = (flags != 0); //sorte de cast en bool...
+      p_irq.sc_p = (flags != 0);
   }
 }
 
@@ -167,6 +167,15 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data,
           bErr = true;
           break;
         }
+
+        if (OVER8){ //DocID025350 Rev 4 545/841
+          if ((value>>4)&1){
+            MLOG_F(SIM, DBG, "%s: ERROR: OVER8 is set, DIV_Fraction[3] must kept clear \n",__FUNCTION__);
+            value&=(~(1<<4)); //force  DIV_Fraction[3] clear
+          }
+        }
+
+          else
         state.USART_BRR = value;
       break;
 
@@ -191,24 +200,12 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data,
         state.USART_CR1 = value;  //update CR1
 
         if(TE){ //si TE: transmision enable à true, alors send contenue TDR
-          if(M){ //8 bits message
-            std::vector<data9bit> data_v;
-            data9bit data9;
-            data9.data=state.USART_TDR;
-            data9.stopBit=(state.USART_CR2 >> STOP0_POS) & 0b11;
-            data_v.push_back(data9); //on envoie le contenue du transmission data register
-            MLOG_F(SIM, DBG, "%s: send 9bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__, data9.stopBit, data9.data);
-            p_uart.send(data_v);
-          }
-          else{
-            std::vector<data8bit> data_v;
-            data8bit data8;
-            data8.data=state.USART_TDR;
-            data8.stopBit=(state.USART_CR2 >> STOP0_POS) & 0b11;
-            data_v.push_back(data8); //on envoie le contenue du transmission data register
-            MLOG_F(SIM, DBG, "%s: send 8bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__, data8.stopBit, data8.data);
-            p_uart.send(data_v);
-          }
+          usart_data data_to_send;
+          data_to_send.length=M;
+          data_to_send.data=state.USART_TDR;
+          data_to_send.stopBit=(state.USART_CR2 >> STOP0_POS) & 0b11;
+          MLOG_F(SIM, DBG, "%s: send %dbits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,data_to_send.length?9:8, data_to_send.stopBit, data_to_send.data);
+          p_uart.send(data_to_send);
         }
 
 

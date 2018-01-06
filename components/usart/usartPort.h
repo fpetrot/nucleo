@@ -76,11 +76,8 @@ public:
 
     const sc_core::sc_event & default_event() const { return rx->default_event(); }
 
-    void recv(std::vector<data8bit> &data) { rx->recv(data); }
-    void send(std::vector<data8bit> &data) { tx->send(data); }
-
-    void recv(std::vector<data9bit> &data) { rx->recv(data); }
-    void send(std::vector<data9bit> &data) { tx->send(data); }
+    void recv(usart_data &data) { rx->recv(data); }
+    void send(usart_data &data) { tx->send(data); }
 
     bool data_pending() { return !rx->empty(); }
 

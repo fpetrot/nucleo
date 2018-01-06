@@ -34,114 +34,40 @@ usartTester::usartTester(sc_core::sc_module_name name, const Parameters &params,
     : Component(name, c)
     ,p_uart("usart")
 {
-    SC_THREAD(read_thread8bit);
-    SC_THREAD(read_thread9bit);
+    SC_THREAD(read_thread);
 
-    SC_THREAD(send_thread8bit);
-    SC_THREAD(send_thread9bit);
+    SC_THREAD(send_thread);
 }
 
-usartTester::~usartTester()
-{
-}
+usartTester::~usartTester(){}
 
 
-void usartTester::read_thread8bit()
-{
-  std::vector<data8bit> data8;
+void usartTester::read_thread(){
+  usart_data data_recv;
 
   while(1) {
-    p_uart.recv(data8);  //rx->recv(data)
-    for (auto c : data8) {
-      MLOG_F(SIM, DBG, "rcv_thread: got a 8 bits/0x%01x Stop  (0x%02x)\n",c.stopBit, c.data);
-    }
-  }
-}
-
-void usartTester::read_thread9bit()
-{
-  std::vector<data9bit> data9;
-  while(1) {
-    p_uart.recv(data9);  //rx->recv(data)
-    for (auto c : data9) {
-      MLOG_F(SIM, DBG, "rcv_thread: got a 9 bits/0x%01x Stop  (0x%02x)\n",c.stopBit, c.data);
-    }
+    p_uart.recv(data_recv);  //rx->recv(data)
+    MLOG_F(SIM, DBG, "rcv_thread: got a %d bits/0x%01x Stop  (0x%02x)\n",data_recv.length?9:8 ,data_recv.stopBit, data_recv.data);
   }
 }
 
 
 //SENDER THREAD FOR TEST PURPOSE
-void usartTester::send_thread8bit(){
-  std::vector<data8bit> data_v;
-  data8bit frame;
-
+void usartTester::send_thread(){
   wait(1,SC_MS);
-
-  wait(32,SC_NS);
-  frame.data = 10;
-  frame.stopBit = 0b10;
-  data_v.push_back(frame);
-  MLOG_F(SIM, DBG, "%s: send 8 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
-  p_uart.send(data_v);
-  data_v.clear();
-
-  wait(32,SC_NS);
-  frame.data = 20;
-  frame.stopBit = 0b10;
-  data_v.push_back(frame);
-  MLOG_F(SIM, DBG, "%s: send 8 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
-  p_uart.send(data_v);
-  data_v.clear();
-
-
-  wait(32,SC_NS);
-  frame.data = 30;
-  frame.stopBit = 0b10;
-  data_v.push_back(frame);
-  MLOG_F(SIM, DBG, "%s: send 8 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
-  p_uart.send(data_v);
-  data_v.clear();
-
+  send_frame(1,0x9,2);
+  wait(12,SC_NS);
+  send_frame(0,0x10,0);
+  wait(12,SC_NS);
+  send_frame(1,0x11,1);
+  wait(12,SC_NS);
 }
 
-//SENDER THREAD FOR TEST PURPOSE
-void usartTester::send_thread9bit(){
-  std::vector<data9bit> data_v;
-  data9bit frame;
-
-  wait(5,SC_MS);
-
-  wait(32,SC_NS);
-  frame.data = 1;
-  frame.stopBit = 0b10;
-  data_v.push_back(frame);
-  MLOG_F(SIM, DBG, "%s: send 9 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
-  p_uart.send(data_v);
-  data_v.clear();
-
-  wait(32,SC_NS);
-  frame.data = 2;
-  frame.stopBit = 0b10;
-  data_v.push_back(frame);
-  MLOG_F(SIM, DBG, "%s: send 9 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
-  p_uart.send(data_v);
-  data_v.clear();
-
-
-  wait(32,SC_NS);
-  frame.data = 3;
-  frame.stopBit = 0b10;
-  data_v.push_back(frame);
-  MLOG_F(SIM, DBG, "%s: send 9 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
-  p_uart.send(data_v);
-  data_v.clear();
-
-  wait(200,SC_MS);
-
-  frame.data = 4;
-  frame.stopBit = 0b10;
-  data_v.push_back(frame);
-  MLOG_F(SIM, DBG, "%s: send 9 bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.stopBit, frame.data);
-  p_uart.send(data_v);
-  data_v.clear();
+void usartTester::send_frame( bool length, uint16_t data, char stopBit){
+  usart_data frame;
+    frame.length = length;
+    frame.data = data;
+    frame.stopBit =stopBit;
+    MLOG_F(SIM, DBG, "%s: send %d bits/0x%01x Stop  (0x%02x)\n", __FUNCTION__,frame.length?9:8, frame.stopBit, frame.data);
+    p_uart.send(frame);
 }

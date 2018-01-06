@@ -216,8 +216,10 @@ struct tty_state
 {
         uint32_t USART_SR;
         //uint32_t USART_DR;
-        uint32_t USART_TDR; //transmit data register
-        uint32_t USART_RDR; //receive data register
+        uint32_t USART_TDR;     //transmit data register
+        uint32_t USART_TDR_SR;  //transmit data register shift register
+        uint32_t USART_RDR;     //receive data register
+        uint32_t USART_RDR_SR;  //receive data register shift register
 
         uint32_t USART_BRR;
         uint32_t USART_CR1;

@@ -21,34 +21,25 @@
 #define _COMPONENT_CHANNEL_USART_DEV_H
 
 #include <systemc>
+//#define LOG_BUF //if you want to print data and buff a envery transfer
 
-typedef struct data9bit_s{
-  uint16_t data : 9;
-  char stopBit : 3;
+typedef struct usart_data_s{
+  bool length;
+      //0:8 bits
+      //1:9 bits
+  uint16_t data;
+  char stopBit;
       // 00 :1    bit stop
       // 01 :0.5  bit stop
       // 10 :2    bit stop
       // 11 :1,5  bit stop
-  // uint16_t stopBit : 2;
-}data9bit;
-
-typedef struct data8bit_s{
-  uint16_t data : 8;
-  char stopBit : 3;
-      // 00 :1    bit stop
-      // 01 :0.5  bit stop
-      // 10 :2    bit stop
-      // 11 :1,5  bit stop
-}data8bit;
+}usart_data;
 
 class UsartDeviceSystemCInterface : public virtual sc_core::sc_interface {
 public:
 
-    virtual void send(std::vector<data9bit> &data) = 0;
-    virtual void recv(std::vector<data9bit> &data) = 0;
-
-    virtual void send(std::vector<data8bit> &data) = 0;
-    virtual void recv(std::vector<data8bit> &data) = 0;
+    virtual void send(usart_data &data) = 0;
+    virtual void recv(usart_data &data) = 0;
 
     virtual bool empty() const = 0;
   };
@@ -58,62 +49,52 @@ class UsartDeviceChannel : public UsartDeviceSystemCInterface,
                           public sc_core::sc_prim_channel
 {
 private:
-    std::vector<data9bit> m_buffer9bit;
-    std::vector<data8bit> m_buffer8bit;
+
+    struct usart_data_buffer{
+      usart_data frame;
+      bool validity;
+    } m_buffer;
 
     sc_core::sc_event m_recv_ev;
 
-    void recv(std::vector<data8bit> &data)
+    void recv(usart_data &data)
     {
-        if (m_buffer8bit.empty()) {
+        if (m_buffer.validity==false) {
+          #ifdef LOG_BUF
           printf("waiting m_recv_ev\n");
+          #endif
           sc_core::wait(m_recv_ev);
         }
 
+      #ifdef LOG_BUF
       printf("recv: buffer state:\n");
-      for (auto c : m_buffer8bit) {
-        printf("8 bits/0x%01x Stop  (0x%02x)\n",c.stopBit, c.data);
-      }
+      printf("8 bits/0x%01x Stop  (0x%02x)\n",m_buffer.frame.stopBit, m_buffer.frame.data);
+      #endif
 
-
-        /* TODO: avoid data copy */
-        data.clear();
-        data.insert(data.end(), m_buffer8bit.begin(), m_buffer8bit.end());
-        m_buffer8bit.clear();
-    }
-
-    void recv(std::vector<data9bit> &data)
-    {
-        if (m_buffer9bit.empty()) {
-          sc_core::wait(m_recv_ev);
-        }
-
-        /* TODO: avoid data copy */
-        data.clear();
-        data.insert(data.end(), m_buffer9bit.begin(), m_buffer9bit.end());
-        m_buffer9bit.clear();
+      data = m_buffer.frame;
+      m_buffer.validity = false;
     }
 
 public:
-    void send(std::vector<data8bit> &data)
+    void send(usart_data &data)
     {
+      #ifdef LOG_BUF
+      printf("send: data to send:\n");
+      printf("%d bits/0x%01x Stop  (0x%02x)\n",data.length ? 9:8 , data.stopBit, data.data);
       printf("send: buffer state:\n");
-      for (auto c : m_buffer8bit) {
-        printf("8 bits/0x%01x Stop  (0x%02x)\n",c.stopBit, c.data);
-      }
-      printf("data to send:\n");
-      for (auto c : data) {
-        printf("8 bits/0x%01x Stop  (0x%02x)\n",c.stopBit, c.data);
-      }
+      if(m_buffer.validity)printf("%d bits/0x%01x Stop  (0x%02x)\n",m_buffer.frame.length ? 9:8 , m_buffer.frame.stopBit, m_buffer.frame.data);
+      #endif
 
-        m_buffer8bit.insert(m_buffer8bit.end(), data.begin(), data.end());
-        request_update();
-    }
 
-    void send(std::vector<data9bit> &data)
-    {
-        m_buffer9bit.insert(m_buffer9bit.end(), data.begin(), data.end());
-        request_update();
+      m_buffer.frame = data;
+
+      if (m_buffer.frame.length)  //Masking with length, 8 or 9 bits setable
+        m_buffer.frame.data&=0b111111111;
+      else
+        m_buffer.frame.data&=0b11111111;
+
+      m_buffer.validity = true;
+      request_update();
     }
 
     void update()
@@ -122,7 +103,7 @@ public:
     }
 
     bool empty() const {
-        return (m_buffer8bit.empty() && m_buffer9bit.empty()) ;
+        return (m_buffer.validity) ;
     }
 
     const sc_core::sc_event & default_event() const {

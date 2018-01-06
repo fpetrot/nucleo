@@ -34,15 +34,11 @@ virtual ~usartTester();
 
 private:
 
-template <typename data_type>
 void read_thread();
 
-void read_thread8bit();
-void read_thread9bit();
+void send_thread();
 
-void send_thread8bit();
-void send_thread9bit();
-
+void send_frame(bool , uint16_t ,char );
 
 public:
 UsartPort p_uart;
