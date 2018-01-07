@@ -21,35 +21,109 @@ platforms:
             address: { 0xe000e000: 0x1000 }
           irq-out: cpu.irq
 
-      flash:
+      # Original flash memory
+      flash-native:
         type: memory
-        size: &mem_size 512K
+        size: &flash_size 512K
         bindings:
           mem:
             peer: mem-bus
-            # Assume we boot from flash with the appropriate remaping
-            # Boot1 Boot0
-            #   x     0   => remap flash to 0x00000000 at boot
-            # FIXME: Even when aliased in the boot memory space, the related
-            #        memory is still accessible at its original memory space
-            address: { &mem_start 0x00000000: *mem_size }
+            address: { &flash_start 0x08000000 : *flash_size } 
+        readonly: true
+
+
+      # Flash memory for flash boot mode. MUST BE THE SAME THAN FLASH-NATIVE ( identic file-blob )   
+      flash-boot:
+        type: memory
+        size: *flash_size
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x0000000: *flash_size }
+        readonly: true
+
+
+         
+      # Flash-interface Stub 
+      flash-interface:
+        type: stub
+        size: &flash_interface_size 1K
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40023C00: *flash_interface_size }
+
+
+      RCC:
+        type: nucleo-rcc 
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40023800: 0x400 }
+      
+
+      # PWR stub 
+      PWR:
+        type: stub
+        size: &PWR_size 1K
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40007000: *PWR_size }
+
 
       sram:
         type: memory
-        size: &mem_size 96K
+        size: &sram_size 96K
         bindings:
           mem:
             peer: mem-bus
-            address: { &mem_start 0x20000000: *mem_size }
+            address: { &sram_start 0x20000000: *sram_size }
 
-#      sys-timer:
-#        type: bcm2835-system-timer
-#        bindings:
-#          mem:
-#            peer: bus
-#            address: { 0x20003000: 0x1c }
-#          irq: irq-ctrl.irq3
-#
+
+      ## TIMERS
+      tim-2:
+       type: nucleo-timer
+       bindings:
+         mem:
+           peer: mem-bus
+           address: { 0x40000000: 0x400 }
+         irq: nvic.irq28
+         
+      tim-3:
+       type: nucleo-timer
+       bindings:
+         mem:
+           peer: mem-bus
+           address: { 0x40000400: 0x400 }
+         irq: nvic.irq29
+
+      tim-4:
+       type: nucleo-timer
+       bindings:
+         mem:
+           peer: mem-bus
+           address: { 0x40000800: 0x400 }
+         irq: nvic.irq30
+
+      tim-5:
+       type: nucleo-timer
+       bindings:
+         mem:
+           peer: mem-bus
+           address: { 0x40000C00: 0x400 }
+         irq: nvic.irq50
+
+      
+
+      syscfg:
+        type: nucleo-syscfg
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40013800: 0x400}
+
+         
 #      usart:
 #        type: uart-pl011
 #        bindings:
@@ -105,3 +179,4 @@ platforms:
           mem:
             peer: mem-bus
             address: { 0x40021C00: 0x400 }
+

@@ -1,0 +1,6 @@
+component:
+  implementation: nucleo-rcc
+  type: nucleo-rcc
+  class: NucleoRcc
+  include: nucleo_rcc.h
+  description: Reset and Clock Controller for STM32F401xx
