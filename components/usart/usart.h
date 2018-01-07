@@ -1,6 +1,6 @@
 /*
- *  This file is part of Rabbits
- *  Copyright (C) 2015  Clement Deschamps and Luc Michel
+ *  This file is part of Nucleo platforms, Usart component
+ *  Copyright (C) 2017 Joris Collomb
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -226,6 +226,8 @@ struct tty_state
         uint32_t USART_CR2;
         uint32_t USART_CR3;
         uint32_t USART_GTPR;
+
+        bool USART_SR_read;   //the SR register has been read since last reception/emmission
 
         uint8_t read_buf[READ_BUF_SIZE];
         int read_pos;

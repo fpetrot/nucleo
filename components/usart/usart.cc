@@ -1,6 +1,6 @@
 /*
- *  This file is part of Rabbits
- *  Copyright (C) 2015  Clement Deschamps and Luc Michel
+ *  This file is part of Nucleo platforms, Usart component
+ *  Copyright (C) 2017 Joris Collomb
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -35,28 +35,33 @@ void usart::read_thread()
 
     while(1) {
       p_uart.recv(data_recv);  //rx->recv(data)
-      MLOG_F(SIM, DBG, "%s: got a %d (M:%d) bits/0x%01x Stop  (0x%02x)\n",__FUNCTION__,data_recv.length ?9:8,M ,data_recv.stopBit, data_recv.data);
+      state.USART_SR_read=false;  //unvalidate the SR register. Use to check software sequence for reseting flag. Exemple 544/841 DocID025350 Rev 4
+      MLOG_F(SIM, DBG, "%s: got a %d bits/0x%01x Stop  (0x%02x)\n",__FUNCTION__,data_recv.length ?9:8 ,data_recv.stopBit, data_recv.data);
       if (((M) ^ data_recv.length)){ //nb de bit recu =/= nb de bit attendu
         MLOG_F(SIM, DBG, "%s: got a %d bits but expect %d\n",__FUNCTION__, data_recv.length ?9:8 , M ?9:8);
       }
-
       //update USART_RDR_SR, the data are in the shift register
       if(PCE){  //parity control enable
         int count=0 , i;
         for (i=0; i<(M?8:7) ; i++){
           count+=(data_recv.data>>i)&1; //counting set bits in data
         }
-        if ((count%2)!=data_recv.data>>(M?9:8)){  //MSB is parity bit
-          MLOG_F(SIM, DBG, "%s: ERROR: parity check\n",__FUNCTION__);
-
-        }else  state.USART_RDR_SR = data_recv.data & M?255:127; //masking of MSB
+        if ((count%2 + signed(PS))!=data_recv.data>>(M?9:8)){  //MSB is parity bit, PS define Odd or Even
+          MLOG_F(SIM, DBG, "%s: ERROR: parity check, PE set\n",__FUNCTION__);
+          state.USART_SR|=(1<<PE_POS); //Set PE parity error bit in status register
+        }else{
+           MLOG_F(SIM, DBG, "%s: parity check OK\n",__FUNCTION__,state.USART_RDR_SR);
+        }
+        state.USART_RDR_SR = data_recv.data & (M?255:127); //masking of MSB, mask depend on length
       }else state.USART_RDR_SR = data_recv.data;
+       MLOG_F(SIM, DBG, "%s: USART_RDR_SR update complete (%x)\n",__FUNCTION__,state.USART_RDR_SR);
       //update RXNE in USART_SR:
       state.USART_SR |= 1<<RXNE_POS;
       irq_update.notify();
     }
-
 }
+
+
 void usart::usart_init_register(void)
 {
     memset(&state, 0, sizeof(state));

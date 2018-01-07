@@ -1,6 +1,6 @@
 /*
- *  This file is part of Rabbits
- *  Copyright (C) 2015  Clement Deschamps and Luc Michel
+ *  This file is a tester for Nucleo Usart component
+ *  Copyright (C) 2017 Joris Collomb
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
