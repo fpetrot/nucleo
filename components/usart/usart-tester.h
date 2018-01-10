@@ -22,6 +22,7 @@
 
 #include <rabbits/component/slave.h>
 #include <rabbits/component/port/out.h>
+#include <rabbits/component/port/in.h>
 #include "usartPort.h"
 
 
@@ -41,8 +42,23 @@ void send_thread();
 void send_frame(bool , uint16_t ,char );
 
 public:
-UsartPort p_uart;
+InPort<bool> p_uart_rx;
+OutPort<bool> p_uart_tx;
 
+struct tty_state
+{
+        uint32_t sampling_time_tester;
+        uint32_t M_tester;
+        uint32_t OVER8_tester;
+        uint32_t USART_DR_SR_tester;
+        uint32_t USART_TDR_SR_tester;
+        uint32_t USART_DR_tester;
+        uint32_t stop_bit_tester;
+        uint32_t PCE_tester;
+        uint32_t PS_tester;
+};
+
+    tty_state state;
 
 };
 
