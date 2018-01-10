@@ -28,7 +28,8 @@ platforms:
             peer: mem-bus
             address: { 0x40011000: 0x1C }
           irq: nvic.irq37    #37 ou 44
-          usart: usart1-tester.usart
+          usart-tx: usart1-tester.usart-rx
+          usart-rx: usart1-tester.usart-tx
 
 
       usart1-tester:    #tester un composant non mappé, avec juste un UsartPort
@@ -60,7 +61,7 @@ platforms:
       #       address: { 0x40011400: 0x400 }
       #     irq: cpu.irq.irq71
 
-      flash:
+      flash-native:
         type: memory
         size: &flash_size 512K
         bindings:
