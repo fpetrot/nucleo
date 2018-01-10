@@ -258,7 +258,7 @@ void usart::irq_update_thread()
     wait(irq_update);
 
 
-    MLOG_F(SIM, DBG, "%s : before update %d\n", __FUNCTION__, p_irq.sc_p.read());
+    // MLOG_F(SIM, DBG, "%s : before update %d\n", __FUNCTION__, p_irq.sc_p.read());
 
     //cf page 541 de DocID025350 Rev 4
     flags = (((TC    && TCIE)   ||
@@ -271,7 +271,7 @@ void usart::irq_update_thread()
               (PE    && PEIE)   ||
               (LBD   && LBDIE)  ||
               (( FE || NF || ORE) && EIE && DMAR )));
-    printf("TC:%d\nTXE:%d\nCTS:%d\nIDLE:%d\nORE:%d\nRXNE:%d\nPE:%d\nLBD:%d\n( FE || NF || ORE):%d\n",TC,TXE,CTS,IDLE,ORE,RXNE,PE,LBD,(FE||NF||ORE));
+    // printf("TC:%d\nTXE:%d\nCTS:%d\nIDLE:%d\nORE:%d\nRXNE:%d\nPE:%d\nLBD:%d\n( FE || NF || ORE):%d\n",TC,TXE,CTS,IDLE,ORE,RXNE,PE,LBD,(FE||NF||ORE));
 
     MLOG_F(SIM, DBG, "%s - %s\n", __FUNCTION__, (flags != 0) ? "1" : "0");
 
