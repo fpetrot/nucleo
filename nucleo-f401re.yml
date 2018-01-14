@@ -21,18 +21,57 @@ platforms:
             address: { 0xe000e000: 0x1000 }
           irq-out: cpu.irq
 
-      # Original flash memory
+      usart1:
+        type: uart-usart
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40011000: 0x1C }
+          irq: nvic.irq37    #37 ou 44
+          usart-tx: usart1-tester.usart-rx
+          usart-rx: usart1-tester.usart-tx
+
+
+      usart1-tester:    #tester un composant non mappé, avec juste un UsartPort
+        type: uart-usart-tester
+
+      #
+      # usart2:
+      #   type: uart-usart
+      #   bindings:
+      #     mem:
+      #       peer: mem-bus
+      #       address: { 0x40004400: 0x1C }
+      #     irq: nvic.irq38    #37 ou 44
+      #     usart: usart2-tester.usart
+      #
+      #
+      # usart2-tester:    #tester un composant non mappé, avec juste un UsartPort
+      #   type: uart-usart-tester
+
+
+
+
+      #
+      # usart6:
+      #   type: uart-pl011
+      #   bindings:
+      #     mem:
+      #       peer: bus
+      #       address: { 0x40011400: 0x400 }
+      #     irq: cpu.irq.irq71
+
       flash-native:
         type: memory
         size: &flash_size 512K
         bindings:
           mem:
             peer: mem-bus
-            address: { &flash_start 0x08000000 : *flash_size } 
+            address: { &flash_start 0x08000000 : *flash_size }
         readonly: true
 
 
-      # Flash memory for flash boot mode. MUST BE THE SAME THAN FLASH-NATIVE ( identic file-blob )   
+      # Flash memory for flash boot mode. MUST BE THE SAME THAN FLASH-NATIVE ( identic file-blob )
       flash-boot:
         type: memory
         size: *flash_size
@@ -43,8 +82,8 @@ platforms:
         readonly: true
 
 
-         
-      # Flash-interface Stub 
+
+      # Flash-interface Stub
       flash-interface:
         type: stub
         size: &flash_interface_size 1K
@@ -55,14 +94,14 @@ platforms:
 
 
       RCC:
-        type: nucleo-rcc 
+        type: nucleo-rcc
         bindings:
           mem:
             peer: mem-bus
             address: { 0x40023800: 0x400 }
-      
 
-      # PWR stub 
+
+      # PWR stub
       PWR:
         type: stub
         size: &PWR_size 1K
@@ -90,7 +129,7 @@ platforms:
            peer: mem-bus
            address: { 0x40000000: 0x400 }
          irq: nvic.irq28
-         
+
       tim-3:
        type: nucleo-timer
        bindings:
@@ -115,7 +154,7 @@ platforms:
            address: { 0x40000C00: 0x400 }
          irq: nvic.irq50
 
-      
+
 
       syscfg:
         type: nucleo-syscfg
@@ -124,7 +163,7 @@ platforms:
             peer: mem-bus
             address: { 0x40013800: 0x400}
 
-         
+
 #      usart:
 #        type: uart-pl011
 #        bindings:
@@ -180,4 +219,3 @@ platforms:
           mem:
             peer: mem-bus
             address: { 0x40021C00: 0x400 }
-
