@@ -1,0 +1,11 @@
+component:
+  implementation: nucleo-timer
+  type: nucleo-timer
+  class: NucleoTimer
+  include: nucleo_timer.h
+  description: General purpose Timer for Nucleo Board
+  parameters:
+    arr-bits:
+      type: uint8
+      default: 16
+      description: Bits number for ARR register 

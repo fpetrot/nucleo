@@ -84,6 +84,7 @@ platforms:
       ## TIMERS
       tim-2:
        type: nucleo-timer
+       arr-bits: 32
        bindings:
          mem:
            peer: mem-bus
