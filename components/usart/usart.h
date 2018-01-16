@@ -23,7 +23,6 @@
 #include <rabbits/component/slave.h>
 #include <rabbits/component/port/out.h>
 #include <rabbits/component/port/in.h>
-#include "usartPort.h"
 
 #define FCLK           12000000 //12MHz
 #define NS_BEFORE_SAMPLING 10
