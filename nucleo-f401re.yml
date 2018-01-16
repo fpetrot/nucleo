@@ -21,19 +21,43 @@ platforms:
             address: { 0xe000e000: 0x1000 }
           irq-out: cpu.irq
 
-      usart1:
-        type: uart-usart
+      # stub to prevent bus error when exiting an irq
+      irq-mem:
+        type: stub
         bindings:
           mem:
             peer: mem-bus
-            address: { 0x40011000: 0x1C }
-          irq: nvic.irq37    #37 ou 44
-          usart-tx: usart1-tester.usart-rx
-          usart-rx: usart1-tester.usart-tx
+            address: { 0xfffffff0: 0x10}
+
+      # stub to prevent bus error when mbed use RCC aliased regions 
+      alias-rcc-mem:
+        type: stub 
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x42470000: 0x100}
+
+      # DBGMCU stup
+      dbgmcu:
+        type: stub
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0xE0042000: 0x1000 }
+
+      # usart1:
+      #   type: uart-usart
+      #   bindings:
+      #     mem:
+      #       peer: mem-bus
+      #       address: { 0x40011000: 0x1C }
+      #     irq: nvic.irq37    #37 ou 44
+      #     usart-tx: usart1-tester.usart-rx
+      #     usart-rx: usart1-tester.usart-tx
 
 
-      usart1-tester:    #tester un composant non mappé, avec juste un UsartPort
-        type: uart-usart-tester
+      # usart1-tester:    #tester un composant non mappé, avec juste un UsartPort
+      #   type: uart-usart-tester
 
       #
       # usart2:
@@ -123,7 +147,7 @@ platforms:
       ## TIMERS
       tim-2:
        type: nucleo-timer
-       arr-bits: 32
+       timer-size: 32
        bindings:
          mem:
            peer: mem-bus
@@ -148,6 +172,7 @@ platforms:
 
       tim-5:
        type: nucleo-timer
+       timer-size: 32
        bindings:
          mem:
            peer: mem-bus
