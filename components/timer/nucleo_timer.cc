@@ -32,7 +32,7 @@ NucleoTimer::NucleoTimer(sc_core::sc_module_name name, const Parameters &params,
   : Slave(name, params, c)
   , irq("irq")
 {
-  arrbits = params["arr-bits"].as<uint8_t>();
+  timer_size = params["timer-size"].as<uint8_t>();
   SC_THREAD(irq_update_thread);
   SC_THREAD(counter_thread);
 }
@@ -121,32 +121,44 @@ void NucleoTimer::bus_cb_read(uint64_t ofs, uint8_t *data,  unsigned int len,boo
 		m_egr_reg &= ~(TIMx_EGR_CC##x##G);		\
 	}
 
+/* Update reg with timer-size */
+#define UPDATE_WITH_SIZE(reg) \
+	reg = (timer_size == 16 ? (uint16_t)value : value);
+
 void NucleoTimer::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bErr)
 {
 	uint32_t value =*((uint32_t*) data + 0);
 	MLOG_F(SIM, DBG, "write to ofs: 0x%x - val: 0x%x\n", ofs, value);
 	switch(ofs){
 	case TIMx_CR1:
-		m_cr1_reg = value;
-	    m_timer_on = m_cr1_reg & TIMx_CR1_CEN; 
+		m_cr1_reg = value & TIMx_CR1_MASK;
+	    m_timer_on = m_cr1_reg & TIMx_CR1_CEN;
+		if((m_cr1_reg & TIMx_CR1_CMS) != 0){			
+			MLOG_F(SIM, DBG, "Center-aligned mode not implemented.\n");
+			m_cr1_reg &= ~(TIMx_CR1_CMS); 
+		}
 		if(m_timer_on){ 
 			ev_wake.notify();
 		}
 		break;
 	case TIMx_CR2:
-		m_cr2_reg = value;
+		m_cr2_reg = value & TIMx_CR2_MASK;
 		break;
 	case TIMx_SMCR:
-		m_smcr_reg = value;
+		m_smcr_reg = value & TIMx_SMCR_MASK;
 		break;
 	case TIMx_DIER: 
-		m_dier_reg = value;
+		m_dier_reg = value & TIMx_DIER_MASK;
 		break; 
 	case TIMx_SR:
 		m_sr_reg &= value; // Only reset available
-		break;
+		if(!(m_sr_reg & m_dier_reg)  ) {
+			irq_status = false;
+			ev_irq_update.notify(); 
+		}
+			break;
 	case TIMx_EGR:
-		m_egr_reg = value;
+		m_egr_reg = value & TIMx_EGR_MASK;
 
 		/* UG Bit */
 		if(m_egr_reg && TIMx_EGR_UG){
@@ -168,27 +180,23 @@ void NucleoTimer::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bo
 
 		break;
 	case TIMx_CCMR1:
-		m_ccmr1_reg = value;
+		m_ccmr1_reg = value & TIMx_CCMR1_MASK;
 		break;
 	case TIMx_CCMR2:
-		m_ccmr2_reg = value;
+		m_ccmr2_reg = value & TIMx_CCMR2_MASK;
 		break;
 	case TIMx_CCER:
-		m_ccer_reg = value;
+		m_ccer_reg = value & TIMx_CCER_MASK;
 		break;
 	case TIMx_CNT:
-		m_cnt_reg = value;
+		UPDATE_WITH_SIZE(m_cnt_reg);
 		break; 
 	case TIMx_PSC:
 		m_psc_reg = value;
 		break;
 	case TIMx_ARR:
 		// Arr size check
-		if(arrbits == 16)
-			m_arr_reg = (uint16_t)value;
-		else 
-			m_arr_reg = value;
-
+		UPDATE_WITH_SIZE(m_arr_reg);
 		if(m_arr_reg == 0){ // counter blocked
 			m_timer_on = false; 
 		}
@@ -196,18 +204,24 @@ void NucleoTimer::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bo
 			m_shadow_arr = m_arr_reg; 
 		break;
 	case TIMx_CCR1:
-		m_ccr1_reg = value;
+		UPDATE_WITH_SIZE(m_ccr1_reg);
 		if(!(m_ccmr1_reg & TIMx_CCMR1_OC1PE))
 			m_shadow_ccr1 = m_ccr1_reg; 
 		break; 
 	case TIMx_CCR2:
-		m_ccr2_reg = value;
+		UPDATE_WITH_SIZE(m_ccr2_reg);
+		if(!(m_ccmr1_reg & TIMx_CCMR1_OC2PE))
+			m_shadow_ccr2 = m_ccr2_reg; 
 		break;
 	case TIMx_CCR3:
-		m_ccr3_reg = value;
+		UPDATE_WITH_SIZE(m_ccr3_reg);
+		if(!(m_ccmr2_reg & TIMx_CCMR2_OC3PE))
+			m_shadow_ccr3 = m_ccr3_reg; 
 		break;
 	case TIMx_CCR4:
-		m_ccr4_reg = value;
+		UPDATE_WITH_SIZE(m_ccr4_reg);
+		if(!(m_ccmr2_reg & TIMx_CCMR2_OC4PE))
+			m_shadow_ccr4 = m_ccr4_reg; 
 		break;
 	case TIMx_DCR:
 		m_dcr_reg = value;
@@ -227,7 +241,7 @@ void NucleoTimer::irq_update_thread()
 {
 	while(1) {
 		wait(ev_irq_update);
-		irq.sc_p = true; 
+		irq.sc_p = irq_status; 
 	}
 }
 
@@ -278,8 +292,11 @@ void NucleoTimer::counter_thread()
 			UEV_COMPARE_CCRx(3);
 			UEV_COMPARE_CCRx(4);
 			
-			if(irq_needed)
+			if(irq_needed){
+				irq_status = true; 
 				ev_irq_update.notify();
+				
+			}
 
 			wait(wait_time, SC_NS, ev_stop_wait); //ev_update_event used to stop waiting if needed
 			
