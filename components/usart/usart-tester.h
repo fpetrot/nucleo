@@ -23,7 +23,6 @@
 #include <rabbits/component/slave.h>
 #include <rabbits/component/port/out.h>
 #include <rabbits/component/port/in.h>
-#include "usartPort.h"
 
 
 class usartTester : public Component
