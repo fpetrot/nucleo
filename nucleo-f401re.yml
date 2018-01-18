@@ -253,3 +253,11 @@ platforms:
         bindings:
           pin:
             peer: gpio-a.gpios5
+
+      # Test button for gpios
+      button1:
+        type: button
+        bindings:
+          pout:
+            peer: gpio-c.gpios13
+        

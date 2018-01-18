@@ -1,0 +1,11 @@
+component:
+  implementation: button
+  type: button
+  class: Button
+  include: button.h
+  description: Simple Button Modelisation
+  parameters:
+    key:
+     type: uint8
+     default: 97
+     description: Key in ASCII Code to trigger this button
