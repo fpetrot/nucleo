@@ -45,19 +45,19 @@ platforms:
             peer: mem-bus
             address: { 0xE0042000: 0x1000 }
 
-      # usart1:
-      #   type: uart-usart
-      #   bindings:
-      #     mem:
-      #       peer: mem-bus
-      #       address: { 0x40011000: 0x1C }
-      #     irq: nvic.irq37    #37 ou 44
-      #     usart-tx: usart1-tester.usart-rx
-      #     usart-rx: usart1-tester.usart-tx
+      usart1:
+        type: uart-usart
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40011000: 0x1C }
+          irq: nvic.irq37    #37 ou 44
+          usart-tx: usart1-tester.usart-rx
+          usart-rx: usart1-tester.usart-tx
 
 
-      # usart1-tester:    #tester un composant non mappé, avec juste un UsartPort
-      #   type: uart-usart-tester
+      usart1-tester:    #tester un composant non mappé, avec juste un UsartPort
+        type: uart-usart-tester
 
       #
       # usart2:
@@ -146,21 +146,23 @@ platforms:
 
       ## TIMERS
       tim-2:
-       type: nucleo-timer
-       timer-size: 32
-       bindings:
-         mem:
-           peer: mem-bus
-           address: { 0x40000000: 0x400 }
-         irq: nvic.irq28
-
+        type: nucleo-timer
+        timer-size: 32
+        log-level: info
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40000000: 0x400 }
+          irq: nvic.irq28
+      
       tim-3:
-       type: nucleo-timer
-       bindings:
-         mem:
-           peer: mem-bus
-           address: { 0x40000400: 0x400 }
-         irq: nvic.irq29
+        type: nucleo-timer
+        log-level: info
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40000400: 0x400 }
+          irq: nvic.irq29
 
       tim-4:
        type: nucleo-timer
@@ -244,3 +246,10 @@ platforms:
           mem:
             peer: mem-bus
             address: { 0x40021C00: 0x400 }
+    
+      # Test led for gpios
+      led1:
+        type: led
+        bindings:
+          pin:
+            peer: gpio-a.gpios5
