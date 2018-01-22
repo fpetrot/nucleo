@@ -1,0 +1,6 @@
+component:
+  implementation: nucleo-exti
+  type: nucleo-exti
+  class: NucleoExti
+  include: nucleo_exti.h
+  description: External Interrupt/Event controller for Nucleo Board
