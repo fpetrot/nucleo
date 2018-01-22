@@ -21,6 +21,17 @@ platforms:
             address: { 0xe000e000: 0x1000 }
           irq-out: cpu.irq
 
+      exti:
+        type: nucleo-exti
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40013C00: 0x1000}
+          # gpios:
+          #   peer: gpio-a
+          irq13:
+            peer: nvic.irq40
+
       # stub to prevent bus error when exiting an irq
       irq-mem:
         type: stub
@@ -173,13 +184,14 @@ platforms:
          irq: nvic.irq30
 
       tim-5:
-       type: nucleo-timer
-       timer-size: 32
-       bindings:
-         mem:
-           peer: mem-bus
-           address: { 0x40000C00: 0x400 }
-         irq: nvic.irq50
+        type: nucleo-timer
+        timer-size: 32
+        log-level: info
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40000C00: 0x400 }
+          irq: nvic.irq50
 
 
 
@@ -259,5 +271,5 @@ platforms:
         type: button
         bindings:
           pout:
-            peer: gpio-c.gpios13
+            peer: exti.gpios1
         

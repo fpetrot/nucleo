@@ -41,6 +41,8 @@ NucleoExti::NucleoExti(sc_core::sc_module_name name, const Parameters &params, C
 	for(auto &p: p_irq) {
 		p.set_autoconnect_to(0);
 	}
+
+	SC_THREAD(it_thread)
 }
 
 NucleoExti::~NucleoExti(){}
@@ -129,7 +131,7 @@ void NucleoExti::it_thread(){
 		// IRQ fetching 
 		int i = 0;
 		for(auto &p : p_gpios){
-			sc_inout<bool> &sc_p = p.sc_p;
+			sc_in<bool> &sc_p = p.sc_p;
 			if(sc_p->posedge() // rising edge detected
 			   && (m_rtsr_reg & ( 1 << i )) && (m_imr_reg & ( 1 << i ))) // and irq needed
 				irq_pending |= ( 1 << i ); 

@@ -41,10 +41,11 @@
 
 class NucleoExti : public Slave<>{
  public:
+	SC_HAS_PROCESS(NucleoExti); 
 	NucleoExti(sc_core::sc_module_name name, const Parameters &params, ConfigManager &c); 
 	virtual ~NucleoExti();
 
-    VectorPort< InOutPort<bool> > p_gpios;
+    VectorPort< InPort<bool> > p_gpios;
 	VectorPort< OutPort<bool> > p_irq;
 	
 
