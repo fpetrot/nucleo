@@ -42,7 +42,8 @@ NucleoExti::NucleoExti(sc_core::sc_module_name name, const Parameters &params, C
 		p.set_autoconnect_to(0);
 	}
 
-	SC_THREAD(it_thread)
+	SC_THREAD(irq_detection_thread);
+	SC_THREAD(irq_update_thread);
 }
 
 NucleoExti::~NucleoExti(){}
@@ -108,9 +109,12 @@ void NucleoExti::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, boo
 	case NUCLEO_EXTI_PR:
 	    m_pr_reg &= ~(val & NUCLEO_EXTI_REG_MASK); // Clear when write '1'
 		for(int i = 0; i < NUCLEO_EXTI_IRQ_NUM; i++){
-			if(p_irq[i].sc_p && !m_pr_reg)
-				p_irq[i].sc_p = false;
+			if(p_irq[i].sc_p && !m_pr_reg){
+				m_irq_status[i] = false; 
+			}
 		}
+		m_ev_irq_update.notify(); 
+	
 		break;
 	default:
 		MLOG_F(SIM, ERR, "Bad %s::%s ofs=0x%X!\n", name(), __FUNCTION__,
@@ -120,7 +124,7 @@ void NucleoExti::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, boo
 	}
 }
 
-void NucleoExti::it_thread(){
+void NucleoExti::irq_detection_thread(){
 	uint16_t irq_pending; // each bit is set to '1' if this irq is pending
 	
 	while(1) {
@@ -132,10 +136,16 @@ void NucleoExti::it_thread(){
 		int i = 0;
 		for(auto &p : p_gpios){
 			sc_in<bool> &sc_p = p.sc_p;
+
+			if(sc_p->posedge())
+				std::cout << "posedge " << i << std::endl;
+			if(sc_p->negedge())
+				std::cout << "negedge " << i << std::endl;
+
 			if(sc_p->posedge() // rising edge detected
 			   && (m_rtsr_reg & ( 1 << i )) && (m_imr_reg & ( 1 << i ))) // and irq needed
 				irq_pending |= ( 1 << i ); 
-			if(sc_p->negedge() // rising edge detected
+			if(sc_p->negedge() // falling edge detected
 			   && (m_ftsr_reg & ( 1 << i )) && (m_imr_reg & ( 1 << i ))) // and irq needed
 				irq_pending |= ( 1 << i );
 
@@ -145,11 +155,21 @@ void NucleoExti::it_thread(){
 		// IRQ generation
 		if(irq_pending){
 			for(i = 0; i < NUCLEO_EXTI_IRQ_NUM; i++){
-				if(irq_pending & (1 << i))
-					p_irq[i].sc_p = true;
+				if(irq_pending & (1 << i)){
+					m_pr_reg |= (1 << i); 
+					m_irq_status[i] = true; 
+				}
 			}
+			m_ev_irq_update.notify(); 
 		}
 	}
 }
 
-
+void NucleoExti::irq_update_thread(){
+	while(1) {
+		wait(m_ev_irq_update);
+		for(int i = 0; i < NUCLEO_EXTI_IRQ_NUM; i++){
+		    p_irq[i].sc_p = m_irq_status[i]; 
+		}
+	}
+}

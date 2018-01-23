@@ -53,7 +53,8 @@ class NucleoExti : public Slave<>{
 	void bus_cb_read(uint64_t ofs, uint8_t *data, unsigned int len, bool &bErr);
 	void bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bErr);
 
-	void it_thread(); 
+	void irq_detection_thread();
+	void irq_update_thread(); 
 	void end_of_elaboration();
 
 	uint32_t m_imr_reg = 0;
@@ -63,7 +64,10 @@ class NucleoExti : public Slave<>{
 	uint32_t m_swier_reg = 0;
 	uint32_t m_pr_reg = 0;
 
-	sc_core::sc_event_or_list m_ev_gpios; 
+	bool m_irq_status[NUCLEO_EXTI_IRQ_NUM] = {};
+
+	sc_core::sc_event m_ev_irq_update;  
+	sc_core::sc_event_or_list m_ev_gpios;
 };
 
 #endif
