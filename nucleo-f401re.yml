@@ -271,5 +271,5 @@ platforms:
         type: button
         bindings:
           pout:
-            peer: exti.gpios1
-        
+            peer: exti.gpios13
+       
