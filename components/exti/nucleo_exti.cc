@@ -109,7 +109,7 @@ void NucleoExti::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, boo
 	case NUCLEO_EXTI_PR:
 	    m_pr_reg &= ~(val & NUCLEO_EXTI_REG_MASK); // Clear when write '1'
 		for(int i = 0; i < NUCLEO_EXTI_IRQ_NUM; i++){
-			if(p_irq[i].sc_p && !m_pr_reg){
+			if(m_irq_status[i] && !m_pr_reg){
 				m_irq_status[i] = false; 
 			}
 		}
@@ -168,8 +168,28 @@ void NucleoExti::irq_detection_thread(){
 void NucleoExti::irq_update_thread(){
 	while(1) {
 		wait(m_ev_irq_update);
-		for(int i = 0; i < NUCLEO_EXTI_IRQ_NUM; i++){
-		    p_irq[i].sc_p = m_irq_status[i]; 
+		/* NOTE :
+		 * We need to separate irqs because irq 5-9 go to the same nvic port, same for irq10-15
+		 * Cannot be done only with YAML description because QemuInPorts are SC_ONE_WRITERS  
+		 */
+		// IRQ 0 - 4
+		for(int i = 0; i < 5; i++){
+		    p_irq[i].sc_p = m_irq_status[i];
 		}
+
+		// IRQ 5 - 9
+		bool irq5 = m_irq_status[5];
+		for(int i = 6; i < 10; i++){
+			irq5 |= m_irq_status[i];
+		}
+		p_irq[5].sc_p = irq5;
+
+		// IRQ 10 - 15
+		bool irq10 = m_irq_status[10];
+		for(int i = 11; i < 16; i++){
+			irq10 |= m_irq_status[i];
+		}
+		p_irq[10].sc_p = irq10;
+
 	}
 }

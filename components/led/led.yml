@@ -1,6 +1,0 @@
-component:
-  implementation: led
-  type: led
-  class: Led
-  include: led.h
-  description: Simple Led Modelisation
