@@ -20,7 +20,7 @@ Rabbits is used to create board simulation using Qemu and SystemC together.
     +-- Plugin1
         +--...
 ```
-Each folder have a CMakeLists.txt. The main rabbits commands are : 
+Each folder has a CMakeLists.txt. The main rabbits commands are : 
 - For platform folder : 
 ```
 rabbits_add_configs(nucleo-f401re.yml) => add new platform
@@ -28,7 +28,7 @@ rabbits_add_dynlib(nucleo) => add platform library to rabbits
 
 ```
 
-- For component or plugin folder:
+- For a component or plugin folder:
 ```
 rabbits_add_sources(component.cc)
 rabbits_add_components(component.yml)
@@ -86,6 +86,9 @@ platforms:
     
 ```
 
+If a port is inside a VectorPort, it can be accessed by adding its number at the end. For example, `peer: gpio-a.gpios5` will link to the fifth port in the VectorPort "gpios" inside component "gpio-a".
+
+
 ### Components creation 
 
 Each component needs at least 3 files : 
@@ -105,7 +108,7 @@ component:
   parameters:
     param1:
       type: uint8 
-      default: 0x10 #default value for this component 
+      default: 0x10 #default value for this parameter 
       description: ...
 ```
 
@@ -141,23 +144,27 @@ Class ComponentClass : public Slave<> {
 }
 ```
 
-Component Construction is used to instantiate component but also to instantiate ports. The name given 
+Component constructer is used to instantiate component but also to instantiate ports. The name given for the ports will be the one to use in `platform.yml`
 ``` C++
-  CompoentClass::ComponentClass(sc_core::sc_module_name name, const Parameters &params, ConfigManager &c)
+  ComponentClass::ComponentClass(sc_core::sc_module_name name, const Parameters &params, ConfigManager &c)
     : Slave(name, params, c)
-    , p_gpios("gpios", NUCLEO_GPIO_COUNT) // Init 
-    , p_irq("irq") 
+    , p_gpios("gpios", NUCLEO_GPIO_COUNT) // Init of a port vector
+    , p_irq("irq") // Init of a single port
   {
-    for(auto &p: p_gpios) {
-      p.set_autoconnect_to(0);
-    }
-    for(auto &p: p_irq) {
-      p.set_autoconnect_to(0);
-    }
-
-    SC_THREAD(thread1);
+    m_param1 = params["params1"].as<uint8_t>(); // retrieve param1 value from Yaml
+    
+    // SystemC informations 
+    SC_THREAD(thread1); 
+    SC_METHODS(method1);
   }
-
 ```
 
+### Logs / Debug
+
+Rabbits provides logs and debugging informations which can be enable globally or component by component. To enable it globally, please refers to `./rabbits.sh -help`. To enable for only one component, you must change `log-level` parameters under component informations in the file `platform.yml` 
+To add logs on a component implementation, use: 
+```
+MLOG_F(SIM, lvl, "Debugging informations :  val = 0x%x\n", val);
+// lvl can be TRC?, DBG, INF ? , ERR.  
+```
 
