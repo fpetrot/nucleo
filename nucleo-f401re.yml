@@ -28,8 +28,22 @@ platforms:
             peer: mem-bus
             address: { 0x40013C00: 0x1000}
           # gpios:
-          #   peer: gpio-a
-          irq13:
+          #   peer: gpio-a.gpios
+          irq0:
+            peer: nvic.irq6
+          irq1:
+            peer: nvic.irq7
+          irq2:
+            peer: nvic.irq8
+          irq3:
+            peer: nvic.irq9
+          irq4:
+            peer: nvic.irq10
+          # irq5 - 9  
+          irq5:
+            peer: nvic.irq23
+          # irq10 - 15
+          irq10:
             peer: nvic.irq40
 
       # stub to prevent bus error when exiting an irq
@@ -269,7 +283,15 @@ platforms:
       # Test button for gpios
       button1:
         type: button
+        time: 2000
+        bindings:
+          pout:
+            peer: exti.gpios12
+       
+      #Test Switch
+      switch1:
+        type: switch
+        key : 98
         bindings:
           pout:
             peer: exti.gpios13
-       
