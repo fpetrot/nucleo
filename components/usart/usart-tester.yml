@@ -4,3 +4,28 @@ component:
   class: usartTester
   include: usart-tester.h
   description: usart UART compenent for external connection test
+  parameters:
+    sampling_time:
+      type: uint32
+      default: 13017
+      description: sampling time of the tester
+    M:
+      type: boolean
+      default: 0
+      description: data length (M?9:8)
+    OVER8:
+      type: boolean
+      default: 0
+      description: oversampling, number of sample per bit (OVER8?8:16)
+    stop_bit:
+      type: uint8
+      default: 0
+      description: number of stop bits
+    PCE:
+      type: boolean
+      default: 0
+      description: enable parity control
+    PS:
+      type: boolean
+      default: 0
+      description: parity polarity (PS?odd:even)

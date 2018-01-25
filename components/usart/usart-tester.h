@@ -23,7 +23,6 @@
 #include <rabbits/component/slave.h>
 #include <rabbits/component/port/out.h>
 #include <rabbits/component/port/in.h>
-#include "usartPort.h"
 
 
 class usartTester : public Component
@@ -35,6 +34,9 @@ virtual ~usartTester();
 
 private:
 
+  uint32_t fclk;
+  uint32_t usartdiv;
+
 void read_thread();
 
 void send_thread();
@@ -42,22 +44,24 @@ void send_thread();
 void send_frame(bool , uint16_t ,char );
 
 public:
-InPort<bool> p_uart_rx;
+InPort<bool>  p_uart_sclk;
+InPort<bool>  p_uart_rx;
 OutPort<bool> p_uart_tx;
 
 struct tty_state
 {
         uint32_t sampling_time_tester;
-        uint32_t M_tester;
-        uint32_t OVER8_tester;
+        bool M_tester;
+        bool OVER8_tester;
         uint32_t USART_DR_SR_tester;
         uint32_t USART_TDR_SR_tester;
         uint32_t USART_DR_tester;
-        uint32_t stop_bit_tester;
-        uint32_t PCE_tester;
-        uint32_t PS_tester;
+        uint8_t stop_bit_tester;
+        bool PCE_tester;
+        bool PS_tester;
 };
 
+    sc_core::sc_trace_file *usartTrace;
     tty_state state;
 
 };
