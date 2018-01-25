@@ -39,7 +39,7 @@
 #define GPIOx_AFRL       0x20
 #define GPIOx_AFRH       0x24
 
-const int NUCLEO_GPIO_COUNT = 50;
+const int NUCLEO_GPIO_COUNT = 16;
 
 class GPFSELn {
 private:
@@ -140,10 +140,8 @@ private:
     uint32_t ospeedr_rv;
     uint32_t pupdr_rv;
 
-    void bus_cb_read_32(uint64_t addr, uint32_t *data, bool &bErr);
-    void bus_cb_write_32(uint64_t addr, uint32_t *data, bool &bErr);
-    void bus_cb_read_16(uint64_t ofs, uint16_t *data, bool &bErr);
-    void bus_cb_write_16(uint64_t ofs, uint16_t *data, bool &bErr);
+    void bus_cb_read(uint64_t addr, uint8_t *data, unsigned int len, bool &bErr);
+    void bus_cb_write(uint64_t addr, uint8_t *data, unsigned int len, bool &bErr);
 
 
     void gpio_thread();

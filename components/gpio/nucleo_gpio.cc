@@ -39,6 +39,7 @@ nucleo_gpio::nucleo_gpio(sc_core::sc_module_name name,
     for(auto &p : p_gpios) {
         p.set_autoconnect_to(0);
     }
+    SC_THREAD(gpio_thread);
 }
 
 nucleo_gpio::~nucleo_gpio()
@@ -57,17 +58,20 @@ void nucleo_gpio::set_weak_bits(uint16_t val, uint32_t &reg) {
     reg |= (uint32_t) val;
 }
 
-void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
+void nucleo_gpio::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bErr)
 {
+    uint32_t value = *((uint32_t*) data + 0);
+	MLOG_F(SIM, DBG, "Write ofs: 0x%x - val: 0x%x - len: %d\n", ofs, *data, len);
+    bool odr_pin_data;
     switch (ofs) {
     case GPIOx_MODER:
         // bit de config à 00 input, 01 general output, 10 AF, 11 analog
         for (int i = 0; i < 16; i++) {
-            if (((nucleo_gpio::gpiox_lckr_reg >> i) & 1U) == 0) {
-                uint16_t x = (*data >> i) & 1U;
-                nucleo_gpio::gpiox_moder_reg ^= (-(unsigned long)x ^ nucleo_gpio::gpiox_moder_reg) & (1UL << i);
-                x = (*data >> (i + 1)) & 1U;
-                nucleo_gpio::gpiox_moder_reg ^= (-(unsigned long)x ^ nucleo_gpio::gpiox_moder_reg) & (1UL << (i + 1));
+            if (((gpiox_lckr_reg >> i) & 1U) == 0) {
+                uint16_t x = (value >> i) & 1U;
+                gpiox_moder_reg ^= (-(unsigned long)x ^ gpiox_moder_reg) & (1UL << i);
+                x = (value >> (i + 1)) & 1U;
+                gpiox_moder_reg ^= (-(unsigned long)x ^ gpiox_moder_reg) & (1UL << (i + 1));
             } else {
                 bErr = true;
                 return;
@@ -75,13 +79,13 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
         }
         break;
     case GPIOx_OTYPER:
-        set_weak_bits((uint16_t)*data, nucleo_gpio::gpiox_otyper_reg); 
+        set_weak_bits(value, gpiox_otyper_reg); 
         break;
     case GPIOx_OSPEEDER:
-        nucleo_gpio::gpiox_speedr_reg = *data;
+        gpiox_speedr_reg = value;
         break;
     case GPIOx_PUPDR:
-        nucleo_gpio::gpiox_pupdr_reg = *data;         
+        gpiox_pupdr_reg = value;         
         break;
     case GPIOx_IDR:
         /* doc : The data input through the I/O are stored 
@@ -94,92 +98,129 @@ void nucleo_gpio::bus_cb_write_32(uint64_t ofs, uint32_t *data, bool &bErr)
         /* doc : GPIx_ODR stores the data to be output, 
 	     * it is read/write accessible
 	     */
-        for (int i = 0; i < 16; i++) {
-            if ((((nucleo_gpio::gpiox_moder_reg) >> (i * 2) & 0x1) == 0x0)
-                    && (((nucleo_gpio::gpiox_moder_reg) >> ((i * 2) + 1) & 0x1) == 0x0)) {
-                uint16_t x = (*data >> i) & 1U;
-                nucleo_gpio::gpiox_odr_reg ^= (-(unsigned long)x ^ nucleo_gpio::gpiox_odr_reg) & (1UL << i);
+        for (int i = 0; i < 16; i+=2) {
+            if (((gpiox_moder_reg) >> (i * 2) & 0x3) == 0b01) {
+                uint16_t x = (value >> i) & 1U;
+                gpiox_odr_reg ^= (-(unsigned long)x ^ gpiox_odr_reg) & (1UL << i);
             }
         }
+        for(auto &p : p_gpios) {
+            for(int i = 0; i < 16; i++) {
+                if(((gpiox_odr_reg >> i) & 0) == 0) {
+                    odr_pin_data = true;
+                } else {
+                    odr_pin_data = false;
+                }
+            }
+            p.sc_p = odr_pin_data;
+        } 
         break;
     case GPIOx_BSRR:
+        gpiox_bsrr_reg = value;
+        /* Set the BR part (bit 31 downto 16)
+         */
+        for(int i=31; i>=16; i--) {
+            // check bit state
+            if(((gpiox_bsrr_reg >> i) & 1U) == 1) {
+                // reset (clear) the corresponding bit
+                gpiox_odr_reg &= ~(1UL << (i-16));
+            }
+        }
+        /* Set the BS part (bit 15 downto 0)
+         */
+        for(int i= 15; i>=0; i--) {
+            if(((gpiox_bsrr_reg >> i) & 1U) == 1) { 
+                // Set the corresponding bit ODR
+                gpiox_odr_reg |= 1UL << i;
+            }
+        }
+        for(auto &p : p_gpios) {
+            for(int i = 0; i < 16; i++) {
+                if(((gpiox_odr_reg >> i) & 1U) == 1) {
+                    odr_pin_data = true;
+                } else {
+                    odr_pin_data = false;
+                }
+            }
+            p.sc_p = odr_pin_data;
+        } 
         break;
     case GPIOx_LCKR:
-        nucleo_gpio::gpiox_lckr_reg = *data;
-        nucleo_gpio::gpiox_lckr_reg &= 0x0000FFFF;
-        nucleo_gpio::gpiox_lckk = nucleo_gpio::gpiox_lckr_reg & 0x00010000;
+        gpiox_lckr_reg = *data;
+        gpiox_lckr_reg &= 0x0000FFFF;
+        gpiox_lckk = gpiox_lckr_reg & 0x00010000;
 
-        if (nucleo_gpio::gpiox_lckk == 0 && nucleo_gpio::gpiox_lck_state == 0) {
+        if (gpiox_lckk == 0 && gpiox_lck_state == 0) {
             // nothing : stay in the initial state
-        } else if (nucleo_gpio::gpiox_lckk == 1 && nucleo_gpio::gpiox_lck_state == 0) {
-            nucleo_gpio::gpiox_lckr_reg_prev = gpiox_lckr_reg;
-            nucleo_gpio::gpiox_lck_state = 1;
-        } else if (nucleo_gpio::gpiox_lckk == 0 && nucleo_gpio::gpiox_lck_state == 1) {
-            nucleo_gpio::gpiox_lck_state = 2;
-        } else if (nucleo_gpio::gpiox_lckk == 1 && nucleo_gpio::gpiox_lck_state == 2) {
-            nucleo_gpio::gpiox_lck_state = 3;
+        } else if (gpiox_lckk == 1 && gpiox_lck_state == 0) {
+            gpiox_lckr_reg_prev = gpiox_lckr_reg;
+            gpiox_lck_state = 1;
+        } else if (gpiox_lckk == 0 && gpiox_lck_state == 1) {
+            gpiox_lck_state = 2;
+        } else if (gpiox_lckk == 1 && gpiox_lck_state == 2) {
+            gpiox_lck_state = 3;
             // sequence ok : locking the config
         } else {
-            nucleo_gpio::gpiox_lck_state = 0;
-            nucleo_gpio::gpiox_lckr_reg = 0x00000000;
+            gpiox_lck_state = 0;
+            gpiox_lckr_reg = 0x00000000;
         }
         break;
 #if 0
     case GPIOx_AFRL:
     case GPIOx_AFRH:
 #endif
-    default:
-        MLOG_F(SIM, ERR, "Bad %s::%s ofs=0x%X, data=0x%X-%X!\n", name(),
-               __FUNCTION__, (unsigned int) ofs,
-               (unsigned int) *((uint32_t *) data + 0),
-               (unsigned int) *((uint32_t *) data + 1));
+    default :
+        MLOG_F(SIM, ERR, "Bad %s::%s ofs=0x%X!\n", name(), __FUNCTION__,
+               (unsigned int) ofs);
         bErr = true;
         return;
-    }
+    } 
 
     bErr = false;
+
 }
 
-void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
+void nucleo_gpio::bus_cb_read(uint64_t ofs, uint8_t *data, unsigned int len,  bool &bErr)
 {
+    uint32_t *value = (uint32_t *) data;
+
     switch (ofs) {
     case GPIOx_MODER:
         // bit de config à 01 pour mode output (lecture)
-        *data = nucleo_gpio::gpiox_moder_reg;
+        *value = gpiox_moder_reg;
         break;
     case GPIOx_OTYPER:
-        *data = 0x0;
+        *value = gpiox_otyper_reg;
         break;
     case GPIOx_OSPEEDER:
-        *data = 0x0;
+        *value = gpiox_speedr_reg;
         break;
     case GPIOx_PUPDR:
-        *data = 0x0;
+        *value = gpiox_pupdr_reg;
         break;
+    
     case GPIOx_IDR:
         //doc : The data input through the I/O are stored into the input data register (GPIOx_IDR), a read-only register
-        *data = 0x0;
-        for (int i = 0; i < 16; i++) {
-            if ((((nucleo_gpio::gpiox_moder_reg) >> (i * 2) & 0x1) == 0x1)
-                    && (((nucleo_gpio::gpiox_moder_reg) >> ((i * 2) + 1) & 0x1) == 0x0)) {
-                uint16_t x = (nucleo_gpio::gpiox_idr_reg >> i) & 1U;
-                *data ^= (-(unsigned long)x ^ *data) & (1UL << i);
+        *value = 0x0;
+        for (int i = 0; i < 16; i+=2) {
+            if (((gpiox_moder_reg) >> (i * 2) & 0x3) == 0x00) {
+                uint16_t x = (gpiox_idr_reg >> i) & 1U;
+                *value ^= (-(unsigned long)x ^ *value) & (1UL << i);
             }
         }
         break;
     case GPIOx_ODR:
         //doc : GPIx_ODR stores the data to be output, it is read/write accessible
-        *data = 0x0;
-        for (int i = 0; i < 16; i++) {
-            if ((((nucleo_gpio::gpiox_moder_reg) >> (i * 2) & 0x1) == 0x1)
-                    && (((nucleo_gpio::gpiox_moder_reg) >> ((i * 2) + 1) & 0x1) == 0x0)) {
-                uint16_t x = (nucleo_gpio::gpiox_odr_reg >> i) & 1U;
-                *data ^= (-(unsigned long)x ^ *data) & (1UL << i);
+        *value = 0x0;
+        for (int i = 0; i < 16; i+=2) {
+            if (((gpiox_moder_reg) >> (i * 2) & 0x3) == 0x01) {
+                uint16_t x = (gpiox_odr_reg >> i) & 1U;
+                *value ^= (-(unsigned long)x ^ *value) & (1UL << i);
             }
         }
         break;
     case GPIOx_BSRR:
-        *data = 0x0;
+        *value = gpiox_bsrr_reg;
         break;
     // case GPIOx_LCKR:
     // case GPIOx_AFRL:
@@ -191,92 +232,21 @@ void nucleo_gpio::bus_cb_read_32(uint64_t ofs, uint32_t *data, bool &bErr)
         return;
     }
     bErr = false;
-}
 
-void nucleo_gpio::bus_cb_write_16(uint64_t ofs, uint16_t *data, bool &bErr)
-{
-    switch (ofs) {
-    case GPIOx_BSRR:
-        nucleo_gpio::gpiox_bsrr_reg = *data;
-        /* Set the BR part (bit 31 downto 16)
-         */
-        for(int i=31; i>=16; i--) {
-            // check bit state
-            if(((nucleo_gpio::gpiox_bsrr_reg >> i) & 1U) == 1) {
-                // reset (clear) the corresponding bit
-                nucleo_gpio::gpiox_odr_reg &= ~(1UL << (i-16));
-                nucleo_gpio::gpiox_idr_reg &= ~(1UL << (i-16));
-            }
-        }
-        /* Set the BS part (bit 15 downto 0)
-         */
-        for(int i= 15; i>=0; i--) {
-            if(((nucleo_gpio::gpiox_bsrr_reg >> i) & 1U) == 1) { 
-                // Set the corresponding bit ODR
-                nucleo_gpio::gpiox_odr_reg |= 1UL << i;
-                nucleo_gpio::gpiox_idr_reg |= 1UL << i;
-            }
-        }
-        break;
-    default :
-        MLOG_F(SIM, ERR, "Bad %s::%s ofs=0x%X!\n", name(), __FUNCTION__,
-               (unsigned int) ofs);
-        bErr = true;
-        return;
-    }
-    bErr = false;
-
-}
-
-void nucleo_gpio::bus_cb_read_16(uint64_t ofs, uint16_t *data, bool &bErr)
-{
-    switch (ofs) {
-    case GPIOx_IDR:
-        //doc : The data input through the I/O are stored into the input data register (GPIOx_IDR), a read-only register
-        *data = 0x0;
-        for (int i = 0; i < 16; i++) {
-            if ((((nucleo_gpio::gpiox_moder_reg) >> (i * 2) & 0x1) == 0x1)
-                    && (((nucleo_gpio::gpiox_moder_reg) >> ((i * 2) + 1) & 0x1) == 0x0)) {
-                uint16_t x = (nucleo_gpio::gpiox_idr_reg >> i) & 1U;
-                *data ^= (-(unsigned long)x ^ *data) & (1UL << i);
-            }
-        }
-        break;
-    case GPIOx_BSRR:
-        *data = 0;
-        break;
-    default:
-        MLOG_F(SIM, ERR, "Bad %s::%s ofs=0x%X!\n", name(), __FUNCTION__,
-               (unsigned int) ofs);
-        bErr = true;
-        return;
-    }
-    bErr = false;
-
+	MLOG_F(SIM, DBG, "Read ofs: 0x%x - val: 0x%x - len: %d\n", ofs, *value, len);
 }
 
 void nucleo_gpio::gpio_thread()
 {
-    for(;;) {
+    while(1) {
         wait(m_ev_gpios);
-
-        unsigned int i = 0;
-        for (auto &p : p_gpios) {
-            sc_inout<bool> &sc_p = p.sc_p;
-
-            if (sc_p.event() && m_gpfsel.is_in(i)) {
-                uint32_t new_val = sc_p.read();
-
-                if(i < 32) {
-                    m_lev0 &= ~(1 << i);
-                    m_lev0 |= new_val << i;
-                }
-                else {
-                    m_lev1 &= ~(1 << (i - 32));
-                    m_lev1 |= new_val << (i - 32);
-                }
+        int i = 0;
+        for(auto &p: p_gpios) {
+            if(p.sc_p.read()) {
+                gpiox_idr_reg |= 1UL << i;
+            } else {
+                gpiox_idr_reg &= ~(1UL << i);
             }
-
             i++;
         }
     }

@@ -21,6 +21,31 @@ platforms:
             address: { 0xe000e000: 0x1000 }
           irq-out: cpu.irq
 
+      exti:
+        type: nucleo-exti
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40013C00: 0x1000}
+          # gpios:
+          #   peer: gpio-a.gpios
+          irq0:
+            peer: nvic.irq6
+          irq1:
+            peer: nvic.irq7
+          irq2:
+            peer: nvic.irq8
+          irq3:
+            peer: nvic.irq9
+          irq4:
+            peer: nvic.irq10
+          # irq5 - 9  
+          irq5:
+            peer: nvic.irq23
+          # irq10 - 15
+          irq10:
+            peer: nvic.irq40
+
       # stub to prevent bus error when exiting an irq
       irq-mem:
         type: stub
@@ -45,19 +70,19 @@ platforms:
             peer: mem-bus
             address: { 0xE0042000: 0x1000 }
 
-      # usart1:
-      #   type: uart-usart
-      #   bindings:
-      #     mem:
-      #       peer: mem-bus
-      #       address: { 0x40011000: 0x1C }
-      #     irq: nvic.irq37    #37 ou 44
-      #     usart-tx: usart1-tester.usart-rx
-      #     usart-rx: usart1-tester.usart-tx
+      usart1:
+        type: uart-usart
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40011000: 0x1C }
+          irq: nvic.irq37    #37 ou 44
+          usart-tx: usart1-tester.usart-rx
+          usart-rx: usart1-tester.usart-tx
 
 
-      # usart1-tester:    #tester un composant non mappé, avec juste un UsartPort
-      #   type: uart-usart-tester
+      usart1-tester:    #tester un composant non mappé, avec juste un UsartPort
+        type: uart-usart-tester
 
       #
       # usart2:
@@ -146,21 +171,23 @@ platforms:
 
       ## TIMERS
       tim-2:
-       type: nucleo-timer
-       timer-size: 32
-       bindings:
-         mem:
-           peer: mem-bus
-           address: { 0x40000000: 0x400 }
-         irq: nvic.irq28
-
+        type: nucleo-timer
+        timer-size: 32
+        log-level: info
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40000000: 0x400 }
+          irq: nvic.irq28
+      
       tim-3:
-       type: nucleo-timer
-       bindings:
-         mem:
-           peer: mem-bus
-           address: { 0x40000400: 0x400 }
-         irq: nvic.irq29
+        type: nucleo-timer
+        log-level: info
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40000400: 0x400 }
+          irq: nvic.irq29
 
       tim-4:
        type: nucleo-timer
@@ -171,13 +198,14 @@ platforms:
          irq: nvic.irq30
 
       tim-5:
-       type: nucleo-timer
-       timer-size: 32
-       bindings:
-         mem:
-           peer: mem-bus
-           address: { 0x40000C00: 0x400 }
-         irq: nvic.irq50
+        type: nucleo-timer
+        timer-size: 32
+        log-level: info
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40000C00: 0x400 }
+          irq: nvic.irq50
 
 
 
@@ -244,3 +272,26 @@ platforms:
           mem:
             peer: mem-bus
             address: { 0x40021C00: 0x400 }
+    
+      # Test led for gpios
+      led1:
+        type: led
+        bindings:
+          pin:
+            peer: gpio-a.gpios5
+
+      # Test button for gpios
+      button1:
+        type: button
+        time: 2000
+        bindings:
+          pout:
+            peer: exti.gpios12
+       
+      #Test Switch
+      switch1:
+        type: switch
+        key : 98
+        bindings:
+          pout:
+            peer: exti.gpios13

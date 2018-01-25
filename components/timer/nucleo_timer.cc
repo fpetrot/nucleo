@@ -29,12 +29,12 @@
 using namespace sc_core;
 
 NucleoTimer::NucleoTimer(sc_core::sc_module_name name, const Parameters &params, ConfigManager &c)
-  : Slave(name, params, c)
-  , irq("irq")
+	: Slave(name, params, c)
+	, irq("irq")
 {
-  timer_size = params["timer-size"].as<uint8_t>();
-  SC_THREAD(irq_update_thread);
-  SC_THREAD(counter_thread);
+	timer_size = params["timer-size"].as<uint8_t>();
+	SC_THREAD(irq_update_thread);
+	SC_THREAD(counter_thread);
 }
 
 NucleoTimer::~NucleoTimer()
@@ -44,85 +44,85 @@ NucleoTimer::~NucleoTimer()
 
 void NucleoTimer::bus_cb_read(uint64_t ofs, uint8_t *data,  unsigned int len,bool &bErr)
 {
-  uint32_t *val = (uint32_t*) data;
+	uint32_t *val = (uint32_t*) data;
 
-  switch(ofs){
-  case TIMx_CR1:
-	  *val = m_cr1_reg;
-	break;
-  case TIMx_CR2:
-	  *val = m_cr2_reg;
-	break;
-  case TIMx_SMCR:
-	  *val = m_smcr_reg;
-	break;
-  case TIMx_DIER:
-	  *val = m_dier_reg;
-	break; 
-  case TIMx_SR:
-	  *val = m_sr_reg;
-	break;
-  case TIMx_EGR:
-	  *val = m_egr_reg;
-	break;
-  case TIMx_CCMR1:
-	  *val = m_ccmr1_reg;
-	break;
-  case TIMx_CCMR2:
-	  *val = m_ccmr2_reg;
-	break;
-  case TIMx_CCER:
-	  *val = m_ccer_reg;
-	break;
-  case TIMx_CNT:
-	  *val = m_cnt_reg;
-	break; 
-  case TIMx_PSC:
-	  *val = m_psc_reg;
-	break;
-  case TIMx_ARR:
-	  *val = m_arr_reg;
-	break;
-  case TIMx_CCR1:
-	  *val = m_ccr1_reg;
-	break; 
-  case TIMx_CCR2:
-	  *val = m_ccr2_reg;
-	break;
-  case TIMx_CCR3:
-	  *val = m_ccr3_reg;
-	break;
-  case TIMx_CCR4:
-	  *val = m_ccr4_reg;
-	break;
-  case TIMx_DCR:
-	  *val = m_dcr_reg;
-	break;
-  case TIMx_OR:
-	  *val = m_or_reg;
-	break;
-  default:
-	MLOG_F(SIM, ERR, "Bad %s::%s ofs=0x%X!\n", name(), __FUNCTION__,
-		   (unsigned int) ofs);
-	bErr = true;
-	return;
-  }
+	switch(ofs){
+	case NUCLEO_TIMx_CR1:
+		*val = m_cr1_reg;
+		break;
+	case NUCLEO_TIMx_CR2:
+		*val = m_cr2_reg;
+		break;
+	case NUCLEO_TIMx_SMCR:
+		*val = m_smcr_reg;
+		break;
+	case NUCLEO_TIMx_DIER:
+		*val = m_dier_reg;
+		break; 
+	case NUCLEO_TIMx_SR:
+		*val = m_sr_reg;
+		break;
+	case NUCLEO_TIMx_EGR:
+		*val = m_egr_reg;
+		break;
+	case NUCLEO_TIMx_CCMR1:
+		*val = m_ccmr1_reg;
+		break;
+	case NUCLEO_TIMx_CCMR2:
+		*val = m_ccmr2_reg;
+		break;
+	case NUCLEO_TIMx_CCER:
+		*val = m_ccer_reg;
+		break;
+	case NUCLEO_TIMx_CNT:
+		*val = m_cnt_reg;
+		break; 
+	case NUCLEO_TIMx_PSC:
+		*val = m_psc_reg;
+		break;
+	case NUCLEO_TIMx_ARR:
+		*val = m_arr_reg;
+		break;
+	case NUCLEO_TIMx_CCR1:
+		*val = m_ccr1_reg;
+		break; 
+	case NUCLEO_TIMx_CCR2:
+		*val = m_ccr2_reg;
+		break;
+	case NUCLEO_TIMx_CCR3:
+		*val = m_ccr3_reg;
+		break;
+	case NUCLEO_TIMx_CCR4:
+		*val = m_ccr4_reg;
+		break;
+	case NUCLEO_TIMx_DCR:
+		*val = m_dcr_reg;
+		break;
+	case NUCLEO_TIMx_OR:
+		*val = m_or_reg;
+		break;
+	default:
+		MLOG_F(SIM, ERR, "Bad %s::%s ofs=0x%X!\n", name(), __FUNCTION__,
+			   (unsigned int) ofs);
+		bErr = true;
+		return;
+	}
 
-  MLOG_F(SIM, DBG, "Read ofs: 0x%x - val: 0x%x\n", ofs, *val);
+	MLOG_F(SIM, DBG, "Read ofs: 0x%x - val: 0x%x\n", ofs, *val);
 }
 
 
 /* Manual Interrupt Compare macros */
-#define INTERRUPT_CCRx(x)						\
-	if(m_egr_reg & TIMx_EGR_CC##x##G){			\
-		m_sr_reg |= TIMx_SR_CC##x##IF;			\
-		if(m_dier_reg & TIMx_DIER_CC##x##IE)	\
-			ev_irq_update.notify();				\
-		m_egr_reg &= ~(TIMx_EGR_CC##x##G);		\
+#define INTERRUPT_CCRx(x)							\
+	if(m_egr_reg & NUCLEO_TIMx_EGR_CC##x##G){		\
+		m_sr_reg |= NUCLEO_TIMx_SR_CC##x##IF;		\
+		if(m_dier_reg & NUCLEO_TIMx_DIER_CC##x##IE)	\
+			ev_irq_update.notify();					\
+		m_egr_reg &= ~(NUCLEO_TIMx_EGR_CC##x##G);	\
 	}
 
 /* Update reg with timer-size */
-#define UPDATE_WITH_SIZE(reg) \
+#define UPDATE_WITH_SIZE(reg)							\
 	reg = (timer_size == 16 ? (uint16_t)value : value);
 
 void NucleoTimer::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bErr)
@@ -130,46 +130,46 @@ void NucleoTimer::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bo
 	uint32_t value =*((uint32_t*) data + 0);
 	MLOG_F(SIM, DBG, "write to ofs: 0x%x - val: 0x%x\n", ofs, value);
 	switch(ofs){
-	case TIMx_CR1:
-		m_cr1_reg = value & TIMx_CR1_MASK;
-	    m_timer_on = m_cr1_reg & TIMx_CR1_CEN;
-		if((m_cr1_reg & TIMx_CR1_CMS) != 0){			
+	case NUCLEO_TIMx_CR1:
+		m_cr1_reg = value & NUCLEO_TIMx_CR1_MASK;
+	    m_timer_on = m_cr1_reg & NUCLEO_TIMx_CR1_CEN;
+		if((m_cr1_reg & NUCLEO_TIMx_CR1_CMS) != 0){			
 			MLOG_F(SIM, DBG, "Center-aligned mode not implemented.\n");
-			m_cr1_reg &= ~(TIMx_CR1_CMS); 
+			m_cr1_reg &= ~(NUCLEO_TIMx_CR1_CMS); 
 		}
 		if(m_timer_on){ 
 			ev_wake.notify();
 		}
 		break;
-	case TIMx_CR2:
-		m_cr2_reg = value & TIMx_CR2_MASK;
+	case NUCLEO_TIMx_CR2:
+		m_cr2_reg = value & NUCLEO_TIMx_CR2_MASK;
 		break;
-	case TIMx_SMCR:
-		m_smcr_reg = value & TIMx_SMCR_MASK;
+	case NUCLEO_TIMx_SMCR:
+		m_smcr_reg = value & NUCLEO_TIMx_SMCR_MASK;
 		break;
-	case TIMx_DIER: 
-		m_dier_reg = value & TIMx_DIER_MASK;
+	case NUCLEO_TIMx_DIER: 
+		m_dier_reg = value & NUCLEO_TIMx_DIER_MASK;
 		break; 
-	case TIMx_SR:
+	case NUCLEO_TIMx_SR:
 		m_sr_reg &= value; // Only reset available
 		if(!(m_sr_reg & m_dier_reg)  ) {
 			irq_status = false;
 			ev_irq_update.notify(); 
 		}
-			break;
-	case TIMx_EGR:
-		m_egr_reg = value & TIMx_EGR_MASK;
+		break;
+	case NUCLEO_TIMx_EGR:
+		m_egr_reg = value & NUCLEO_TIMx_EGR_MASK;
 
 		/* UG Bit */
-		if(m_egr_reg && TIMx_EGR_UG){
+		if(m_egr_reg && NUCLEO_TIMx_EGR_UG){
 			update_event();
-			m_cnt_reg = m_cr1_reg & TIMx_CR1_DIR ? m_shadow_arr : 0;
-			m_sr_reg |= TIMx_SR_UIF;
-			if(m_dier_reg & TIMx_DIER_UIE)
+			m_cnt_reg = m_cr1_reg & NUCLEO_TIMx_CR1_DIR ? m_shadow_arr : 0;
+			m_sr_reg |= NUCLEO_TIMx_SR_UIF;
+			if(m_dier_reg & NUCLEO_TIMx_DIER_UIE)
 				ev_irq_update.notify(); 
 	
 			ev_stop_wait.notify(); // Use to reset prescaler waiting
-			m_egr_reg &= ~(TIMx_EGR_UG); // clear EGR bit
+			m_egr_reg &= ~(NUCLEO_TIMx_EGR_UG); // clear EGR bit
 		}
 
 		/* Compare interrupts */
@@ -179,54 +179,54 @@ void NucleoTimer::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bo
 		INTERRUPT_CCRx(4);
 
 		break;
-	case TIMx_CCMR1:
-		m_ccmr1_reg = value & TIMx_CCMR1_MASK;
+	case NUCLEO_TIMx_CCMR1:
+		m_ccmr1_reg = value & NUCLEO_TIMx_CCMR1_MASK;
 		break;
-	case TIMx_CCMR2:
-		m_ccmr2_reg = value & TIMx_CCMR2_MASK;
+	case NUCLEO_TIMx_CCMR2:
+		m_ccmr2_reg = value & NUCLEO_TIMx_CCMR2_MASK;
 		break;
-	case TIMx_CCER:
-		m_ccer_reg = value & TIMx_CCER_MASK;
+	case NUCLEO_TIMx_CCER:
+		m_ccer_reg = value & NUCLEO_TIMx_CCER_MASK;
 		break;
-	case TIMx_CNT:
+	case NUCLEO_TIMx_CNT:
 		UPDATE_WITH_SIZE(m_cnt_reg);
 		break; 
-	case TIMx_PSC:
+	case NUCLEO_TIMx_PSC:
 		m_psc_reg = value;
 		break;
-	case TIMx_ARR:
+	case NUCLEO_TIMx_ARR:
 		// Arr size check
 		UPDATE_WITH_SIZE(m_arr_reg);
 		if(m_arr_reg == 0){ // counter blocked
 			m_timer_on = false; 
 		}
-		if(!(m_cr1_reg & TIMx_CR1_ARPE)) // shadow_arr and arr must be the same
+		if(!(m_cr1_reg & NUCLEO_TIMx_CR1_ARPE)) // shadow_arr and arr must be the same
 			m_shadow_arr = m_arr_reg; 
 		break;
-	case TIMx_CCR1:
+	case NUCLEO_TIMx_CCR1:
 		UPDATE_WITH_SIZE(m_ccr1_reg);
-		if(!(m_ccmr1_reg & TIMx_CCMR1_OC1PE))
+		if(!(m_ccmr1_reg & NUCLEO_TIMx_CCMR1_OC1PE))
 			m_shadow_ccr1 = m_ccr1_reg; 
 		break; 
-	case TIMx_CCR2:
+	case NUCLEO_TIMx_CCR2:
 		UPDATE_WITH_SIZE(m_ccr2_reg);
-		if(!(m_ccmr1_reg & TIMx_CCMR1_OC2PE))
+		if(!(m_ccmr1_reg & NUCLEO_TIMx_CCMR1_OC2PE))
 			m_shadow_ccr2 = m_ccr2_reg; 
 		break;
-	case TIMx_CCR3:
+	case NUCLEO_TIMx_CCR3:
 		UPDATE_WITH_SIZE(m_ccr3_reg);
-		if(!(m_ccmr2_reg & TIMx_CCMR2_OC3PE))
+		if(!(m_ccmr2_reg & NUCLEO_TIMx_CCMR2_OC3PE))
 			m_shadow_ccr3 = m_ccr3_reg; 
 		break;
-	case TIMx_CCR4:
+	case NUCLEO_TIMx_CCR4:
 		UPDATE_WITH_SIZE(m_ccr4_reg);
-		if(!(m_ccmr2_reg & TIMx_CCMR2_OC4PE))
+		if(!(m_ccmr2_reg & NUCLEO_TIMx_CCMR2_OC4PE))
 			m_shadow_ccr4 = m_ccr4_reg; 
 		break;
-	case TIMx_DCR:
+	case NUCLEO_TIMx_DCR:
 		m_dcr_reg = value;
 		break;
-	case TIMx_OR:
+	case NUCLEO_TIMx_OR:
 		m_or_reg = value;
 		break;
 	default:
@@ -234,7 +234,7 @@ void NucleoTimer::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bo
 			   (unsigned int) ofs);
 		bErr = true;
 		return;
-  }
+	}
 }
 
 void NucleoTimer::irq_update_thread()
@@ -248,18 +248,18 @@ void NucleoTimer::irq_update_thread()
 
 /* Interrupt macro */ 
 #define UEV_ARR()								\
-	if(!(m_cr1_reg & TIMx_CR1_UDIS)){			\
+	if(!(m_cr1_reg & NUCLEO_TIMx_CR1_UDIS)){	\
 		update_event();							\
-		m_sr_reg |= TIMx_SR_UIF;				\
-		if(m_dier_reg & TIMx_DIER_UIE)			\
+		m_sr_reg |= NUCLEO_TIMx_SR_UIF;			\
+		if(m_dier_reg & NUCLEO_TIMx_DIER_UIE)	\
 			irq_needed = true;					\
 	}
 
 #define UEV_COMPARE_CCRx(x)							\
-	if(m_cnt_reg == m_shadow_ccr##x){ 		\
-		m_sr_reg |= TIMx_SR_CC##x##IF;			\
-		if(m_dier_reg & TIMx_DIER_CC##x##IE)	\
-			irq_needed = true;					\
+	if(m_cnt_reg == m_shadow_ccr##x){				\
+		m_sr_reg |= NUCLEO_TIMx_SR_CC##x##IF;		\
+		if(m_dier_reg & NUCLEO_TIMx_DIER_CC##x##IE)	\
+			irq_needed = true;						\
 	}
 
 
@@ -271,18 +271,18 @@ void NucleoTimer::counter_thread()
 			uint32_t wait_time = m_ns_period * (m_shadow_psc+1);
 
 			/* Counter Behaviour */
-			if(m_cr1_reg & TIMx_CR1_DIR){
+			if(m_cr1_reg & NUCLEO_TIMx_CR1_DIR){
 				m_cnt_reg--;
 
 				if(m_cnt_reg == 0) { // Counter done
 					UEV_ARR() 
-					m_cnt_reg = m_shadow_arr;
+						m_cnt_reg = m_shadow_arr;
 				}
 			} else {
 				m_cnt_reg++; 
 				if(m_cnt_reg == m_shadow_arr) { // Counter done
 				    UEV_ARR()
-					m_cnt_reg = 0;
+						m_cnt_reg = 0;
 				}
 			}
 
@@ -311,15 +311,15 @@ void NucleoTimer::update_event()
 {
 	/* Update shadow registers */
 	m_shadow_psc = m_psc_reg;
-	if(m_cr1_reg & TIMx_CR1_ARPE)
+	if(m_cr1_reg & NUCLEO_TIMx_CR1_ARPE)
 		m_shadow_arr = m_arr_reg;
-	if(m_ccmr1_reg & TIMx_CCMR1_OC1PE)
+	if(m_ccmr1_reg & NUCLEO_TIMx_CCMR1_OC1PE)
 		m_shadow_ccr1 = m_ccr1_reg;
-	if(m_ccmr1_reg & TIMx_CCMR1_OC2PE)
+	if(m_ccmr1_reg & NUCLEO_TIMx_CCMR1_OC2PE)
 		m_shadow_ccr2 = m_ccr2_reg;
-	if(m_ccmr2_reg & TIMx_CCMR2_OC3PE)
+	if(m_ccmr2_reg & NUCLEO_TIMx_CCMR2_OC3PE)
 		m_shadow_ccr3 = m_ccr3_reg;
-	if(m_ccmr2_reg & TIMx_CCMR2_OC4PE)
+	if(m_ccmr2_reg & NUCLEO_TIMx_CCMR2_OC4PE)
 		m_shadow_ccr4 = m_ccr4_reg;
 }
  
