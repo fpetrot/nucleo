@@ -24,7 +24,7 @@
 #include <rabbits/component/port/out.h>
 #include <rabbits/component/port/in.h>
 
-#define FCLK           12000000 //12MHz
+#define FCLK           84000000 //84MHz
 #define NS_BEFORE_SAMPLING 10
 
 #define AMBA_CID 0xB105F00D
@@ -263,9 +263,12 @@ OutPort<bool> p_irq;
 
 InPort<bool> p_uart_rx;
 OutPort<bool> p_uart_tx;
+OutPort<bool> p_uart_sclk;
 
 private:
-sc_core::sc_event evRead;
+sc_core::sc_event evRead; 
+uint32_t fclk;    //Frequency of the APB bus, can be set in yml file of the platform
+bool lastReadSR;  //bool to detection of read SR write DR software sequence
 
 tty_state state;
 };

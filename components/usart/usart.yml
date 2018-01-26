@@ -4,3 +4,8 @@ component:
   class: usart
   include: usart.h
   description: usart UART
+  parameters:
+    fclk:
+      type: uint32
+      default: 42000000   # default on APB1, for APB2: 84000000
+      description: frequence of the APB bus, on which the usart is map.

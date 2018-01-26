@@ -136,7 +136,7 @@ void nucleo_gpio::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bo
         }
         for(auto &p : p_gpios) {
             for(int i = 0; i < 16; i++) {
-                if(((gpiox_odr_reg >> i) & 0) == 0) {
+                if(((gpiox_odr_reg >> i) & 1U) == 1) {
                     odr_pin_data = true;
                 } else {
                     odr_pin_data = false;
@@ -245,7 +245,7 @@ void nucleo_gpio::gpio_thread()
             if(p.sc_p.read()) {
                 gpiox_idr_reg |= 1UL << i;
             } else {
-                gpiox_idr_reg |= 1UL << i;
+                gpiox_idr_reg &= ~(1UL << i);
             }
             i++;
         }

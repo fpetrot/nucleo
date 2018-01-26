@@ -32,33 +32,50 @@ using namespace sc_core;
 
 usartTester::usartTester(sc_core::sc_module_name name, const Parameters &params, ConfigManager &c)
     : Component(name, c)
+    ,p_uart_sclk("usart-sclk")
     ,p_uart_rx("usart-rx")
     ,p_uart_tx("usart-tx")
 {
-    SC_THREAD(read_thread);
+  state.sampling_time_tester=  params["sampling_time"].as<uint32_t>();   //9600bauds (approximatif, le HAL de mbed comme tun erreur sur son calcul)
+  state.M_tester = params["M"].as<bool>();
+  state.OVER8_tester = params["OVER8"].as<bool>();
+  state.USART_DR_SR_tester = 0x0;
+  state.USART_TDR_SR_tester = 0x0;
+  state.USART_DR_tester = 0x0;
+  state.stop_bit_tester = params["stop_bit"].as<uint8_t>();
+  state.PCE_tester = params["PCE"].as<bool>();
+  state.PS_tester = params["PS"].as<bool>();
 
-    SC_THREAD(send_thread);
 
-    state.sampling_time_tester=2312;
-    state.M_tester=0;
-    state.OVER8_tester=0;
-    state.USART_DR_SR_tester=0x0;
-    state.USART_TDR_SR_tester=0x0;
-    state.USART_DR_tester=0x0;
-    state.stop_bit_tester=0b10;
-    state.PCE_tester=0;
-    state.PS_tester=1;
+
+  const char *str_name = (const char *)name;
+  char * str_sig_name = (char *)malloc(strlen(str_name)+5);
+  strcpy(str_sig_name, str_name);
+  strcat(str_sig_name,"UsartTrace");
+  usartTrace = sc_create_vcd_trace_file (str_sig_name);      //file create at root of rabbits
+  usartTrace->set_time_unit(1,SC_NS);  //May slow down the simulation (haven't done performance evaluation) but allow 1ns:1ns scale on trace log
+
+  sc_trace(usartTrace, p_uart_rx.sc_p ,"RX");
+  sc_trace(usartTrace, p_uart_tx.sc_p ,"TX");
+  sc_trace(usartTrace, p_uart_sclk.sc_p ,"SCLK");
+
+  SC_THREAD(read_thread);
+
+  SC_THREAD(send_thread);
 }
 
-usartTester::~usartTester(){}
+usartTester::~usartTester(){
+  sc_close_vcd_trace_file(usartTrace);
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
 void usartTester::read_thread()
 {
   unsigned int sample, bit_count;
-
   wait(10,SC_NS); //Little wait, to let the line time to init
+
+  // sc_trace(usartTrace, p_uart_rx.sc_p , "TX");
 
   ////////////////////////sampling data
   while(1) {
@@ -67,6 +84,7 @@ void usartTester::read_thread()
     }
     bool value = p_uart_rx.sc_p;
     MLOG_F(SIM, DBG, "%s:USART-TESTER: start bit detected! %d\n",__FUNCTION__, value);
+
     //Start bit detection!
     for (bit_count=0; bit_count <= (state.M_tester?9:8); bit_count++){
       for (sample=1; sample <= (state.OVER8_tester?8:16); sample++){
@@ -106,7 +124,7 @@ void usartTester::read_thread()
       wait((state.sampling_time_tester * (state.OVER8_tester?5:9)),SC_NS);  //only the first stop bit is check
       if(!p_uart_rx.sc_p){
         //TODO: gestion of error stop bit sampling
-        MLOG_F(SIM, DBG, "%s: USART-TESTER: Stop bit detection Error\n",__FUNCTION__);
+        MLOG_F(SIM, DBG, "%s: USART-TESTER: 0b10 Stop bit detection Error\n",__FUNCTION__);
       }
       break;
       /////////////////////
@@ -126,7 +144,7 @@ void usartTester::read_thread()
       for (i=0; i<(state.M_tester?8:7) ; i++){
         count+=(state.USART_DR_SR_tester>>i)&1; //counting set bits in data
       }
-      if (count%2 + (state.PS_tester)!=state.USART_DR_SR_tester>>(state.M_tester?9:8)){  //MSB is parity bit, PS define Odd or Even
+      if (((count + (uint32_t)(state.PS_tester))%2)!=state.USART_DR_SR_tester>>(state.M_tester?9:8)){  //MSB is parity bit, PS define Odd or Even
         MLOG_F(SIM, DBG, "%s: ERROR: parity check, PE set\n",__FUNCTION__);
       }else{
         MLOG_F(SIM, DBG, "%s: parity check OK\n",__FUNCTION__);
@@ -139,9 +157,13 @@ void usartTester::read_thread()
 
 
 ////////////////////////////////////////////////////////////////////////////////
+/*
+This thread contain code to send some frames to the tested USART.
+The characteritic of the frames are the same than those of the read thread
+*/
 void usartTester::send_thread()
 {
-  // p_uart_tx.sc_p = true;  //1 on output tx port
+  p_uart_tx.sc_p = true;  //1 on output tx port, that's the idle state
   //
   // wait(1000,SC_MS);
   // MLOG_F(SIM, DBG, "%s:starting sending test frame\n",__FUNCTION__);
