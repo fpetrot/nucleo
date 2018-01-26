@@ -21,13 +21,23 @@ platforms:
             address: { 0xe000e000: 0x1000 }
           irq-out: cpu.irq
 
+
+      syscfg:
+        type: nucleo-syscfg
+        bindings:
+          mem:
+            peer: mem-bus
+            address: {0x40013800: 0x1000}
+          to-exti:
+            peer: exti.from-syscfg
+
       exti:
         type: nucleo-exti
         bindings:
           mem:
             peer: mem-bus
             address: { 0x40013C00: 0x1000}
-          # gpios:
+          # gpios-a:
           #   peer: gpio-a.gpios
           irq0:
             peer: nvic.irq6
@@ -208,15 +218,6 @@ platforms:
           irq: nvic.irq50
 
 
-
-      syscfg:
-        type: nucleo-syscfg
-        bindings:
-          mem:
-            peer: mem-bus
-            address: { 0x40013800: 0x400}
-
-
 #      usart:
 #        type: uart-pl011
 #        bindings:
@@ -286,7 +287,7 @@ platforms:
         time: 2000
         bindings:
           pout:
-            peer: exti.gpios12
+            peer: exti.gpios-a13
        
       #Test Switch
       switch1:
@@ -294,4 +295,4 @@ platforms:
         key : 98
         bindings:
           pout:
-            peer: exti.gpios13
+            peer: exti.gpios-c13

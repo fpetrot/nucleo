@@ -1,0 +1,6 @@
+component:
+  implementation: nucleo-syscfg
+  type: nucleo-syscfg
+  class: NucleoSyscfg
+  include: nucleo_syscfg.h
+  description: System Configuration component for Nucleo Board

@@ -30,29 +30,59 @@
 
 using namespace sc_core;
 
+#define GPIOS_AUTOCONNECT(gpios)										\
+	for(auto &p: gpios) {												\
+		p.set_autoconnect_to(0);										\
+	}																	\
+
 NucleoExti::NucleoExti(sc_core::sc_module_name name, const Parameters &params, ConfigManager &c)
 	: Slave(name, params, c)
-	, p_gpios("gpios", NUCLEO_GPIO_COUNT)
-	, p_irq("irq", NUCLEO_EXTI_IRQ_NUM) 
+	, p_irq("irq", NUCLEO_EXTI_IRQ_NUM)
+	, p_cfg("from-syscfg")
+	, p_gpios_a("gpios-a", NUCLEO_GPIO_COUNT)	
+	, p_gpios_b("gpios-b", NUCLEO_GPIO_COUNT)
+	, p_gpios_c("gpios-c", NUCLEO_GPIO_COUNT)
+	, p_gpios_d("gpios-d", NUCLEO_GPIO_COUNT)
+	, p_gpios_e("gpios-e", NUCLEO_GPIO_COUNT)
+	, p_gpios_h("gpios-h", NUCLEO_GPIO_COUNT)
 {
-	for(auto &p: p_gpios) {
-		p.set_autoconnect_to(0);
-	}
+	GPIOS_AUTOCONNECT(p_gpios_a);
+	GPIOS_AUTOCONNECT(p_gpios_b);
+	GPIOS_AUTOCONNECT(p_gpios_c);
+	GPIOS_AUTOCONNECT(p_gpios_d);
+	GPIOS_AUTOCONNECT(p_gpios_e);
+	GPIOS_AUTOCONNECT(p_gpios_h);
 	for(auto &p: p_irq) {
 		p.set_autoconnect_to(0);
 	}
 
 	SC_THREAD(irq_detection_thread);
 	SC_THREAD(irq_update_thread);
+	SC_THREAD(cfg_update_thread);
 }
 
 NucleoExti::~NucleoExti(){}
 
+
+#define GPIOS_EVENT_SET(gpios)					\
+	for (auto &p : gpios) {						\
+		m_ev_gpios |= p.sc_p.default_event();	\
+	}											\
+
 void NucleoExti::end_of_elaboration()
 {
-    for (auto &p : p_gpios) {
-        m_ev_gpios |= p.sc_p.default_event();
-    }
+	GPIOS_EVENT_SET(p_gpios_a);
+	GPIOS_EVENT_SET(p_gpios_b);
+	GPIOS_EVENT_SET(p_gpios_c);
+	GPIOS_EVENT_SET(p_gpios_d);
+	GPIOS_EVENT_SET(p_gpios_e);
+	GPIOS_EVENT_SET(p_gpios_h);
+
+	// Default gpios configuration
+	for(int i = 0; i < NUCLEO_EXTI_IRQ_NUM; i++){
+		m_gpios_selected[i] = &p_gpios_a[i]; 
+	}
+
 }
 
 void NucleoExti::bus_cb_read(uint64_t ofs, uint8_t *data,  unsigned int len,bool &bErr){
@@ -131,11 +161,11 @@ void NucleoExti::irq_detection_thread(){
 		wait(m_ev_gpios);
 		irq_pending = 0;
 
-
+		
 		// IRQ fetching 
 		int i = 0;
-		for(auto &p : p_gpios){
-			sc_in<bool> &sc_p = p.sc_p;
+		for(auto &p : m_gpios_selected){
+			sc_in<bool> &sc_p = p->sc_p;
 
 			if(sc_p->posedge())
 				std::cout << "posedge " << i << std::endl;
@@ -154,7 +184,7 @@ void NucleoExti::irq_detection_thread(){
 
 		// IRQ generation
 		if(irq_pending){
-			for(i = 0; i < NUCLEO_EXTI_IRQ_NUM; i++){
+			for(int i = 0; i < NUCLEO_EXTI_IRQ_NUM; i++){
 				if(irq_pending & (1 << i)){
 					m_pr_reg |= (1 << i); 
 					m_irq_status[i] = true; 
@@ -190,6 +220,44 @@ void NucleoExti::irq_update_thread(){
 			irq10 |= m_irq_status[i];
 		}
 		p_irq[10].sc_p = irq10;
+
+	}
+}
+
+
+void NucleoExti::cfg_update_thread(){
+	while(1) {
+		wait(p_cfg.sc_p.default_event());
+		uint32_t newcfg = p_cfg.sc_p.read();
+		int gpiosIndex = (newcfg >> 0x10) * 4;
+
+		for(int i = gpiosIndex; i < gpiosIndex + 4; i++){
+			int newgpio = (newcfg >> ((i % 4) * 4)) & 0xF;
+			switch(newgpio){
+			case 0x0:
+				m_gpios_selected[i] = &p_gpios_a[i];
+				break; 
+			case 0x1:
+				m_gpios_selected[i] = &p_gpios_b[i];
+				break; 
+			case 0x2:
+				m_gpios_selected[i] = &p_gpios_c[i];
+				break; 
+			case 0x3:
+				m_gpios_selected[i] = &p_gpios_d[i];
+				break; 
+			case 0x4:
+				m_gpios_selected[i] = &p_gpios_e[i];
+				break; 
+			case 0x7:
+				m_gpios_selected[i] = &p_gpios_h[i];
+				break;
+			default:
+				MLOG_F(SIM, ERR, "Internal Error: wrong new configuration\n", name(), __FUNCTION__);
+				break; 
+			}
+		}
+
 
 	}
 }
