@@ -1,6 +1,6 @@
 /*
 *  This file is part of Nucleo platforms, Usart component
-*  Copyright (C) 2017 Joris Collomb
+*  Copyright (C) 2017 Joris Collomb from SLE ENSIMAG
 *
 *  This program is free software; you can redistribute it and/or
 *  modify it under the terms of the GNU General Public License
@@ -29,13 +29,18 @@
 
 using namespace sc_core;
 
+
+//Single-wire half-duplex communication (HDSEL) NOT POSSIBLE!!! AS SIGNAL CAN'T BE MANY_WRITERS IN RABBITS
+
+
 ////////////////////////////////////////////////////////////////////////////////
 void usart::usart_init_register(void)
 {
   memset(&state, 0, sizeof(state));
   state.USART_SR    = USART_SR_RST_VALUE;
   state.USART_DR    = USART_DR_RST_VALUE;
-  state.USART_DR_SR = USART_DR_RST_VALUE;
+  state.USART_DR_TSR= USART_DR_RST_VALUE;
+  state.USART_DR_RSR= USART_DR_RST_VALUE;
   state.USART_BRR   = USART_BRR_RST_VALUE;
   state.USART_CR1   = USART_CR1_RST_VALUE;
   state.USART_CR2   = USART_CR2_RST_VALUE;
@@ -69,113 +74,208 @@ usart::~usart()
 
 
 ////////////////////////////////////////////////////////////////////////////////
+//////////////////////READ THREAD///////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 void usart::read_thread()
 {
-  wait(NS_BEFORE_SAMPLING,SC_NS); //Little wait, to let the line time to init
   uint32_t sample, bit_count;
+  bool seeking_for_addr = false;
+
+  ////TEST  //TODO DELETE THIS SHIT
+  // p_uart_tx.sc_p = true;  //steady state output tx port
+  // volatile bool test = p_uart_tx.sc_p;  //steady state output tx port
+  //CONCLUSION, ON PEUT LIRE DE PARTOUT, MAIS ECRIRE QUE DANS 1 THREAD
+
+
+wait(NS_BEFORE_SAMPLING,SC_NS); //Little wait, to let the line time to init
 
   ////////////////////////DATA SAMPLING
   while(1) {
     if(!RE){
-      wait(read_mode); //not in reception mode, wait RE posedge
+      wait(RE_posedge); //not in reception mode, wait RE posedge
     }
-    while(p_uart_rx.sc_p){        //the line is idle, waiting for start bit
+
+    ///////////////////////////MUTE MODE/////////////////////////////
+    if(RWU){  //if mute mode, idle frame detection to wake the receiver
+      MLOG_F(SIM, DBG, "%s: ENTER MUTE MODE\n",__FUNCTION__);
+      int nb_sample_high;   //number of high sample detected in a row
+      int nb_sample_idle;   //number of sample where the port need to be high to detect an idle frames
+      int nb_stop;          //need nb_stop to calculate nb_sample_idle
+      //how many stop assuming the configuration?
+      int stop_b_reg_v = (state.USART_CR2 >> STOP0_POS) & 0b11;
+      switch(stop_b_reg_v){
+        case 0b00 ://1 stop bit
+        nb_stop = 1;
+        break;
+        case 0b01 ://0,5 stop bit
+        nb_stop = 0.5;
+        break;
+        case 0b10 : //2 stop bit
+        nb_stop = 2;
+        break;
+        case 0b11 ://1,5 stop bit
+        nb_stop = 1.5;
+        break;
+      }
+      nb_sample_idle = (1 + M?9:8 + nb_stop) * state.sampling_time;
+      for(nb_sample_high = 0 ; nb_sample_high < nb_sample_idle ; nb_sample_high++){
+        if(!RX_PORT){ //line not high?
+        // if(!p_uart_rx.sc_p){ //line not high?
+          nb_sample_high = 0;  //not an idle frame, reset the counter and continue looking for idle frame to wake
+          wait(state.sampling_time,SC_NS);  //wait for next sample
+        }
+      }
+      MLOG_F(SIM, DBG, "%s: IDLE FRAME DETECTED\n",__FUNCTION__);
+      if(WAKE){ //if wake=1 addres mark detectection mode, next data will be an address
+        seeking_for_addr = true;
+      }else{
+        state.USART_CR1 &= ~(1<<RWU_POS);   //reset RWU flag
+        MLOG_F(SIM, DBG, "%s: EXIT MUTE MODE (RWU reset)\n",__FUNCTION__);
+      }
+    }
+
+    /////////////////////START BIT DETECTION//////////////////////
+    while(RX_PORT){        //the line is idle, waiting for start bit
       wait(state.sampling_time,SC_NS);
     }
-    //Start bit detection!
-    for (bit_count=0; bit_count <= (M?9:8); bit_count++){
-      for (sample=1; sample <= (OVER8?8:16); sample++){
-        if (sample==(OVER8?5:9)){
+    //Start bit detected!
+    if (WAKE) MLOG_F(SIM, DBG, "%s: Frame detected, testing the address of the node\n",__FUNCTION__);
+    //////////////////////SAMPLING DATA///////////////////////////
+    for (bit_count=0; (bit_count <= (M?9:8))  && (!RWU || seeking_for_addr); bit_count++){     //for each bit,        [RWU break because it need to MUTE the receiver, but not when we are looking for an address]
+      for (sample=1; (sample <= (OVER8?8:16)) && (!RWU || seeking_for_addr); sample++){       //at each sampling time,[RWU break because it need to MUTE the receiver, but not when we are looking for an address]
+        if (sample==(OVER8?5:9)){   //at the right sampling time,
           //adding input bit in the shifting register
           if(bit_count==0){
-            if(p_uart_rx.sc_p){
+            if(RX_PORT){
               MLOG_F(SIM, DBG, "%s: USART-RX: Start bit detection Error\n",__FUNCTION__);
             }
           }else{
-            MLOG_F(SIM, DBG, "%s: USART-RX:%d :%d\n",__FUNCTION__,bit_count,p_uart_rx.sc_p.read());
-              state.USART_DR_SR = ((state.USART_DR_SR >> 1) | (p_uart_rx.sc_p << (M?9:8)-1));
+            MLOG_F(SIM, DBG, "%s: USART-RX:%d :%d\n",__FUNCTION__,bit_count,HDSEL?p_uart_tx.sc_p.read():p_uart_rx.sc_p.read());
+              state.USART_DR_RSR = ((state.USART_DR_RSR >> 1) | (RX_PORT << ((M?9:8)-1)));
           }
         }
         wait(state.sampling_time,SC_NS);
       }
     }//data is received, and in shift register
 
-    //STOP BIT SAMPLING TO VALIDATE DATA
-    //514/841 DocID025350 Rev 4
-    int stop_b_reg_v = (state.USART_CR2 >> STOP0_POS) && 0b11;
-    switch(stop_b_reg_v){
-      case 0 ://1 stop bit
-      wait((state.sampling_time * (OVER8?5:9)),SC_NS);
-      if(!p_uart_rx.sc_p){
-        MLOG_F(SIM, DBG, "%s:USART: Stop bit detection Error (in:%d config %d)\n",__FUNCTION__,p_uart_rx.sc_p.read(),stop_b_reg_v);
-      }
-      break;
-      /////////////////////
-      case 1 ://0,5 stop bit
-      //No sampling with 0,5 stop bit, so no error checking
-      break;
-      /////////////////////
-      case 2 : //2 stop bit
-      wait((state.sampling_time * (OVER8?5:9)),SC_NS);  //only the first stop bit is check
-      if(!p_uart_rx.sc_p){
-        MLOG_F(SIM, DBG, "%s: Stop bit detection Error (in:%d expected %d)\n",__FUNCTION__,p_uart_rx.sc_p.read(),stop_b_reg_v);
-      }
-      break;
-      /////////////////////
-      case 3 ://1,5 stop bit
-      wait((state.sampling_time * (OVER8?8:17)),SC_NS);
-      if(!p_uart_rx.sc_p){
-        MLOG_F(SIM, DBG, "%s: Stop bit detection Error (in:%d expected %d)\n",__FUNCTION__,p_uart_rx.sc_p.read(),stop_b_reg_v);
-      }
-      break;
-      /////////////////////
-    }
+    if(RWU && !seeking_for_addr)continue; //if entering mute mode, return to the while(1) statement for idle frame detection to wake the receiver
+    //'->it need to be test after each sc_core::wait because the configuration may change..
+    //but not we are looking for an address
 
-    state.USART_SR_read=false;  //unvalidate the SR register. Use to check software sequence for reseting flag. Exemple 544/841 DocID025350 Rev 4
 
-    //PARITY CHECKING
+    ////////////////////PARITY CHECKING///////////////////////////
     if(PCE){  //parity control enable
       int count=0 , i;
       for (i=0; i<((M?8:7)) ; i++){
-        count+=(state.USART_DR_SR>>i)&1; //counting set bits in data
+        count+=(state.USART_DR_RSR>>i)&1; //counting set bits in data
       }
-      if (((count+ (PS))%2 )!=state.USART_DR_SR>>(M?9:8)){  //MSB is parity bit, PS define Odd or Even
+      if (((count+ (PS))%2 )!=state.USART_DR_RSR>>(M?9:8)){  //MSB is parity bit, PS define Odd or Even
         MLOG_F(SIM, DBG, "%s: ERROR: parity check, PE set\n",__FUNCTION__);
         state.USART_SR|=(1<<PE_POS); //Set PE parity error bit in status register
       }else{
         MLOG_F(SIM, DBG, "%s: parity check OK\n",__FUNCTION__);
       }
-      state.USART_DR = state.USART_DR_SR & (M?255:127); //masking of MSB parity bit, mask depend on length
-    }else state.USART_DR = state.USART_DR_SR;
+      state.USART_DR = state.USART_DR_RSR & (M?255:127); //masking of MSB parity bit, mask depend on length
+    }else state.USART_DR = state.USART_DR_RSR;
     MLOG_F(SIM, DBG, "%s: USART_DR update complete (%x)\n",__FUNCTION__,state.USART_DR);
     //update RXNE in USART_SR:
     state.USART_SR |= 1<<RXNE_POS;
+
+
+
+    /////////////////SAMPLING STOP BIT//////////////////////////////
+    //514/841 DocID025350 Rev 4
+    int stop_b_reg_v = (state.USART_CR2 >> STOP0_POS) && 0b11;
+    switch(stop_b_reg_v){
+      case 0 ://1 stop bit
+      wait((state.sampling_time * (OVER8?5:9)),SC_NS);
+      if(!RX_PORT){
+        state.USART_SR |= 1<<FE_POS |    //raising framing error flag
+                          1<<RXNE_POS;    //and read data register not empty flag
+        MLOG_F(SIM, DBG, "%s:USART: Stop bit detection Error (in:%d config %d)\n",__FUNCTION__,HDSEL?p_uart_tx.sc_p.read():p_uart_rx.sc_p.read(),stop_b_reg_v);
+      }
+      break;
+      /////////////////////
+      case 1 ://0,5 stop bit
+      //No sampling with 0,5 stop bit, so no error checking
+
+      //Smartcard NACK signal sending
+      if(SCEN && NACK && PE){
+        wait(state.sampling_time * (4*(2-(OVER8))),SC_NS); //half baud cycle
+        p_uart_tx.sc_p = false;  //line pull low by receiver (it's us here) during stop bit in case of parity error
+        wait(state.sampling_time * (8*(2-(OVER8))),SC_NS);  //full baud cycle
+        p_uart_tx.sc_p = true;  //line pull low by receiver (it's us here) during stop bit in case of parity error
+        //FIXME as sc_p is connect to a non-SC_MANY_WRITERS signal, this will stop the simulation.
+      }
+      break;
+      /////////////////////
+      case 2 : //2 stop bit
+      wait((state.sampling_time * (OVER8?5:9)),SC_NS);  //only the first stop bit is check
+      if(!RX_PORT){
+        state.USART_SR |= 1<<FE_POS |     //raising framing error flag
+                          1<<RXNE_POS;    //and read data register not empty flag
+        MLOG_F(SIM, DBG, "%s: Stop bit detection Error (in:%d expected %d)\n",__FUNCTION__,HDSEL?p_uart_tx.sc_p.read():p_uart_rx.sc_p.read(),stop_b_reg_v);
+      }
+      break;
+      /////////////////////
+      case 3 ://1,5 stop bit
+
+      //Smartcard NACK signal sending
+      if(SCEN && NACK && PE){
+        wait(state.sampling_time * (4*(2-(OVER8))),SC_NS); //half baud cycle
+        p_uart_tx.sc_p = false;  //line pull low by receiver (it's us here) during stop bit in case of parity error
+        wait(state.sampling_time * (8*(2-(OVER8))),SC_NS);  //full baud cycle
+        p_uart_tx.sc_p = true;  //line pull low by receiver (it's us here) during stop bit in case of parity error
+        //FIXME as sc_p is connect to a non-SC_MANY_WRITERS signal, this will stop the simulation.
+      }else{  //no NACK signal to send, so standard stop bit sampling
+        wait((state.sampling_time * (OVER8?8:17)),SC_NS);
+        if(!RX_PORT){
+          state.USART_SR |= 1<<FE_POS |    //raising framing error flag
+                            1<<RXNE_POS;    //and read data register not empty flag
+          MLOG_F(SIM, DBG, "%s: Stop bit detection Error (in:%d expected %d)\n",__FUNCTION__,HDSEL?p_uart_tx.sc_p.read():p_uart_rx.sc_p.read(),stop_b_reg_v);
+      }
+      }
+      break;
+      /////////////////////
+    }
+
+    /////////////////ADDRESS MARK DETECTION WAKE UP/////////////////////////////
+    if(WAKE && seeking_for_addr){ //the data is an addr,
+      //the 4 LSb of CR2 are the addr of our node
+      if (state.USART_DR_RSR == (state.USART_CR2 & 0b1111)){  //if it match we need to wake up the receiver
+        state.USART_CR1 &= ~(1<<RWU_POS);   //reset RWU flag -> wake up
+        MLOG_F(SIM, DBG, "%s: EXIT MUTE MODE (RWU reset)\n",__FUNCTION__);
+      }
+    }
+    seeking_for_addr = false;
+
+    if(RWU)continue; //if entering mute mode, return to the while(1) statement for idle frame detection to wake the receiver
+    //'->it need to be test after each sc_core::wait because the configuration may change..
+
     irq_update.notify();
   }
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void usart::send_thread()
-{
+//////////////////////SEND THREAD///////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+void usart::send_thread(){
+
   unsigned int bit_count;
-  p_uart_tx.sc_p = true;  //init output tx port
 
   while(1){
     uint32_t time_of_idle_frame;
     float nb_stop;
 
-    //wake up on TE posedge
-    wait(request_idle);
-
-    MLOG_F(SIM, DBG, "%s: request idle frame\nM:%d (%d bit)\nOVER8:%d (%d sample per bit)\nb_stop %x\nsampling_time:%d\n",__FUNCTION__,M,M?9:8,OVER8,OVER8?8:16,((state.USART_CR2 >> STOP0_POS) & 0b11),state.sampling_time);
-    //idle frame: frame full of 1
-    wait((state.sampling_time * (8*(2-(OVER8)))),SC_NS); //1 bit time delay berfore transmission start
-
-    p_uart_tx.sc_p = true;  //1 on output tx port
+    p_uart_tx.sc_p = true;  //steady state output tx port
     p_uart_sclk.sc_p = CPOL;   //reset SCLK, to steady value
 
-    //calculation of idle frme time, depend on oversampling method, number of data bit and stop bit
+    //wake up on TE posedge
+    wait(TE_posedge);
+
+
+    //how many stop assuming the configuration?
     int stop_b_reg_v = (state.USART_CR2 >> STOP0_POS) & 0b11;
     switch(stop_b_reg_v){
       case 0b00 ://1 stop bit
@@ -191,34 +291,54 @@ void usart::send_thread()
       nb_stop = 1.5;
       break;
     }
-    time_of_idle_frame = uint32_t(state.sampling_time * (8*(2-(OVER8))) * (((M)?9:8) + nb_stop));
 
-    wait(time_of_idle_frame,SC_NS);
+    wait((state.sampling_time * (8*(2-(OVER8)))),SC_NS); //1 bit time delay berfore transmission start
 
-    MLOG_F(SIM, DBG, "%s: idle frame sent\n",__FUNCTION__);
+    if(!SCEN){  //posedge on TE must send an idle frame, but not in smartcard mode (SCEN=1), as idle frame not defined in ISO
+      //calculation of idle frme time, depend on oversampling method, number of data bit and stop bit
+      time_of_idle_frame = uint32_t(state.sampling_time * (8*(2-(OVER8))) * (((M)?9:8) + nb_stop));
+      MLOG_F(SIM, DBG, "%s: request idle frame\nM:%d (%d bit)\nOVER8:%d (%d sample per bit)\nb_stop %x\nsampling_time:%d\n",__FUNCTION__,M,M?9:8,OVER8,OVER8?8:16,((state.USART_CR2 >> STOP0_POS) & 0b11),state.sampling_time);
+      wait(time_of_idle_frame,SC_NS);
+      //idle frame: frame full of 1, the line is already high
+      MLOG_F(SIM, DBG, "%s: idle frame sent\n",__FUNCTION__);
+    }
 
-    //IDLE FRAME SENT, NOW DATA MANAGEMENT
+    //NOW DATA MANAGEMENT
 
     while(TE){  //while we stay in transmission
       p_uart_sclk.sc_p = CPOL;   //reset SCLK, to steady value
-      while(TXE){ //at first rising of TE, TXE is low but no data as been provided to the USART, so first send:unconditional wait of TXE event
+      while(TXE && !SBK){ //Waiting for new data (not if break frame requested SBK=1)
         MLOG_F(SIM, DBG, "%s: wait for new data (TXE:%d)\n",__FUNCTION__,TXE);
         wait(TXE_event);  //waiting for new data to send, TXE event and TXE clear by writing in USART_DR
       }
       if(!TE){
-        break; //TXE event bu TE no more set, need to stop sending thread. Return to wait request_idle
+        break; //TXE event bu TE no more set, need to stop sending thread. Return to wait TE_posedge
         MLOG_F(SIM, DBG, "%s: TE reset, stop sending\n",__FUNCTION__);
       }
-      MLOG_F(SIM, DBG, "%s: New data to send (0x%x) \n",__FUNCTION__,state.USART_DR);
+      MLOG_F(SIM, DBG, "%s: New %s to send (0x%x) \n",__FUNCTION__,SBK?"break":"data",SBK?0:state.USART_DR);
 
-      state.USART_DR_SR = state.USART_DR; //Copy of data register in shift registers
+      if(SBK){ //need to send a break frame!
+        int nb_bit_break = (LINEN? 13 : (M? 11:10));  //if LINEN break is 13 bit long, otherwise depending on M bits
+        p_uart_tx.sc_p = false;
+        wait(state.sampling_time * (8*(2-(OVER8))) * nb_bit_break,SC_NS); //wait other half of the time for the next bit to send
+        p_uart_tx.sc_p = true;  //stop bit of the break frame
+        state.USART_CR2 &= ~(1<<SBK_POS);   //reset SBK bit during stop bit sending
+        wait(state.sampling_time * (8*(2-(OVER8))) * nb_stop,SC_NS); //wait other half of the time for the next bit to send
+        continue; //return to test of TE
+      }
+
+      state.USART_DR_TSR = state.USART_DR; //Copy of data register in shift registers
       state.USART_DR = 0x0;
+
+      if (SCEN){    //in smartcad mode, delayed by a guaranteed 1/2 baud clock before shifting
+        wait(state.sampling_time * (4*(2-(OVER8))),SC_NS);
+      }
 
       state.USART_SR |= 1<<TXE_POS; //Transmit data register is empty, it can be over-write without data loss
       MLOG_F(SIM, DBG, "%s: data copy in shift register (TXE:%d)\n",__FUNCTION__,TXE);
       irq_update.notify();  //update irq, if TXIE and TE, should raise an irq
 
-      //Sending data in USART_DR_SR
+      //Sending data in USART_DR_TSR
       uint8_t parity_count;
       for (bit_count=0; bit_count <= (M?9:8); bit_count++){
 
@@ -226,14 +346,14 @@ void usart::send_thread()
           p_uart_tx.sc_p = false;
         }
         else{
-          if(PCE && state.USART_DR_SR & 1) parity_count++;
+          if(PCE && state.USART_DR_TSR & 1) parity_count++;
 
           if(PCE && bit_count == (M?9:8)){  //MSB is parity bit when PCE is set
             p_uart_tx.sc_p = (parity_count + PS )%2;    //send parity bit, PS?Odd:Even
-          }else p_uart_tx.sc_p = state.USART_DR_SR & 1; //send data: the LSB bit of SR
+          }else p_uart_tx.sc_p = state.USART_DR_TSR & 1; //send data: the LSB bit of SR
 
-          MLOG_F(SIM, DBG,"%s: USART-TX:%d\n", __FUNCTION__,state.USART_DR_SR & 1);
-          state.USART_DR_SR = state.USART_DR_SR >> 1; //shifting the shift register
+          MLOG_F(SIM, DBG,"%s: USART-TX:%d\n", __FUNCTION__,state.USART_DR_TSR & 1);
+          state.USART_DR_TSR = state.USART_DR_TSR >> 1; //shifting the shift register
         }
 
         wait(state.sampling_time * (4*(2-(OVER8))),SC_NS); //wait half of the time for the next bit to send
@@ -243,7 +363,7 @@ void usart::send_thread()
           if ((bit_count != 0) &&                   // not on bit 0, it's the start bit
              !(PCE   && (bit_count==(M?9:8)))) {    //and not on the parity bit (MSB of data) if PCE=1.
             if((!LBCL && (bit_count==(M?9:8)))){    //don't toggle if LBCL=0 and transimission of MSB
-              p_uart_sclk.sc_p = CPOL;              //MSB and !LBCL set?, SCLK reset to steady state
+              p_uart_sclk.sc_p = CPOL;              //SCLK reset to steady state
             }else p_uart_sclk.sc_p = (CPHA ^ CPOL); //set SCLK at the midle of the data bit, see fig 179  531/841 DocID025350 Rev 4
           }
         }
@@ -257,7 +377,8 @@ void usart::send_thread()
 
       //sclk return to steady value
       p_uart_sclk.sc_p = CPOL;   //reset SCLK before stop bits
-      //-----> sending stop bit
+
+      ////////////////////////STOP BITS//////////////////////
       p_uart_tx.sc_p = true;
       wait(state.sampling_time * (8*(2-(OVER8)))*nb_stop,SC_NS);
 
@@ -273,6 +394,8 @@ void usart::send_thread()
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+//////////////////////////IRQ THREAD////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 void usart::irq_update_thread()
 {
@@ -408,7 +531,7 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bE
     if ((((value >> RE_POS &1) && !RE) && UE) ||
         (((value >> UE_POS &1) && !UE) && RE)) { //posedge on RE bit when UE set or posedge on UE when RE is set
         // if(value >> UE_POS & 1){ //only when usart enable
-          read_mode.notify();  //send idle frame to init transmissions
+          RE_posedge.notify();  //send idle frame to init transmissions
       // }
     }
 
@@ -417,7 +540,7 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bE
         (((value >> TE_POS &1) && !TE) && ((value >> UE_POS &1) && !UE))) //posedge on UE and TE
         {
           state.USART_SR |= 1<<TXE_POS; //set TXE when enabling transmission mode, overwhise may send an unknow frame
-          request_idle.notify();  //send idle frame to init transmissions
+          TE_posedge.notify();  //send idle frame to init transmissions
       // }
     }
 
