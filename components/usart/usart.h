@@ -254,17 +254,20 @@ void read_thread();
 sc_core::sc_event RE_posedge;
 void send_thread();
 sc_core::sc_event TE_posedge;
-
 sc_core::sc_event TXE_event;
 
-// void IrDA_thread();
 
 void SCLK_thread();
-sc_core::sc_event IrDALP_SC_event;
 sc_core::sc_event SCLK_update;
+
+// void IrDA_thread();
+// sc_core::sc_event IrDA_update;
 
 void irq_update_thread();
 sc_core::sc_event irq_update;
+
+void nCTS_update_method();
+sc_core::sc_event nCTS_event;
 
 
 void usart_init_register(void);
@@ -292,6 +295,22 @@ InOutPort<bool> p_uart_tx;
 */
 OutPort<bool> p_uart_sclk;
 
+
+/*nCTS and NRTS port
+  Used for synchronized transmission, such as SPI
+*/
+InPort <bool> p_uart_nCTS;
+OutPort<bool> p_uart_nRTS;
+sc_core::sc_event nRTS_event;
+
+
+/*IrDA port
+  Used for synchronized transmission, such as SPI
+*/
+// OutPort<bool> p_uart_IrDA_Out;
+// InPort<bool> p_uart_IrDA_In;
+//TODO delete IrDA facility, it seem to be manage by hardware outside the usart,
+//so nothing to do with IrDA
 
 private:
 sc_core::sc_event evRead;

@@ -1,6 +1,7 @@
 /*
 *  This file is part of Nucleo platforms, Usart component
 *  Copyright (C) 2017 Joris Collomb from SLE ENSIMAG
+*  Contact Joris.Collomb@gmail.com in case of trouble
 *
 *  This program is free software; you can redistribute it and/or
 *  modify it under the terms of the GNU General Public License
@@ -56,6 +57,8 @@ usart::usart(sc_core::sc_module_name name, const Parameters &params, ConfigManag
 , p_uart_rx("usart-rx")
 , p_uart_tx("usart-tx")
 , p_uart_sclk("usart-sclk")
+, p_uart_nCTS("usart-nCTS")
+, p_uart_nRTS("usart-nRTS")
 {
   fclk = params["fclk"].as<uint32_t>();
   //OVERWISE SEND REQUEST TO RCC TO HAVE DE APB FREQUENCY. BUT HAS WE ARE SLAVE...
@@ -67,6 +70,10 @@ usart::usart(sc_core::sc_module_name name, const Parameters &params, ConfigManag
   SC_THREAD(send_thread);
   SC_THREAD(SCLK_thread);
   SC_THREAD(irq_update_thread);
+
+  SC_METHOD(nCTS_update_method);
+  sensitive << p_uart_nCTS.sc_p;
+
 }
 
 usart::~usart()
@@ -181,6 +188,12 @@ void usart::read_thread()
     MLOG_F(SIM, DBG, "%s: USART_DR update complete (%x)\n",__FUNCTION__,state.USART_DR);
     //update RXNE in USART_SR:
     state.USART_SR |= 1<<RXNE_POS;
+
+    if (RTSE){
+      p_uart_nRTS.sc_p = true;  //set nRTS output if hardware flow control is enable. Will be reset by a read to DR
+      wait(nRTS_event);         //data has been read, can continue
+      p_uart_nRTS.sc_p = false;
+    }
 
 
 
@@ -338,9 +351,16 @@ void usart::send_thread(){
         wait(TXE_event);  //waiting for new data to send, TXE event and TXE clear by writing in USART_DR
       }
       if(!TE){
-        break; //TXE event bu TE no more set, need to stop sending thread. Return to wait TE_posedge
         MLOG_F(SIM, DBG, "%s: TE reset, stop sending\n",__FUNCTION__);
+        break; //TXE event but TE no more set, need to stop sending thread. Return to wait TE_posedge
       }
+
+      if(CTSE && p_uart_nCTS.sc_p){ //Receiver not ready and hardware flow control enable! need to hold before sending
+        MLOG_F(SIM, DBG, "%s: nCTS High, receiver not ready\n",__FUNCTION__);
+          wait(nCTS_event); //event notify when p_uart_nCTS.sc_p is low
+          continue; //return to TE test,
+      }
+
       MLOG_F(SIM, DBG, "%s: New %s to send (0x%x) \n",__FUNCTION__,SBK?"break":"data",SBK?0:state.USART_DR);
 
       if(SBK){ //need to send a break frame!
@@ -455,20 +475,20 @@ void usart::SCLK_thread(){
 
     ///////////////////////PRECONDITION/////////////////////////////////////////
 
-    if (!(IREN && IRLP) && !SCEN && CLKEN){  //SCLK needed in normal mode, just need to apply the value composed by the sending thread to the outport
+    if (!SCEN && CLKEN){  //SCLK needed in normal mode, just need to apply the value composed by the sending thread to the outport
       p_uart_sclk.sc_p = data_composed_sclk;
-      wait(SCLK_update); //wait for change on SCLK status
+      wait(SCLK_update); //wait for change on SCLK status, or config modification
       // wait(state.sampling_time?state.sampling_time:1000,SC_NS); //if sampling time already calculate, otherwise arbitrary 1000ns
       continue;
     }
 
-    if(! ((IREN && IRLP) || (SCEN && CLKEN) )){  //we are not in smartcard or IrDA low power mode?
+    if(!(SCEN && CLKEN)){  //we are not in smartcard mode with clock?
       //we don't need this thread, wait for one of those control bit
       wait(SCLK_update);
       continue;
     }
 
-    if ((state.USART_GTPR & 0b11111111) == 0){
+    if ((state.USART_GTPR & 0b11111) == 0){
       MLOG_F(SIM, ERR, "%s: GTPR:PSC is 0x0, do not program this value\n",__FUNCTION__);
       wait(state.sampling_time, SC_NS);
       continue;
@@ -476,13 +496,13 @@ void usart::SCLK_thread(){
 
     /////////////////////SCLK HANDLING//////////////////////////////////////////
 
-    wait(((state.USART_GTPR & (SCEN?0b11111:0b11111111))*(SCEN?2:1))/((fclk*2)/1000000),SC_NS); //first half period wait of divided system clock
+    wait(((state.USART_GTPR & 0b11111)*2)/((fclk*2)/1000000),SC_NS); //first half period wait of doubly divided system clock
 
     if(SCEN && CLKEN){  //clock for smartcard mode: toggle sclk out port
       p_uart_sclk.sc_p = !p_uart_sclk.sc_p;
     }
 
-    wait(((state.USART_GTPR & (SCEN?0b11111:0b11111111))*(SCEN?2:1))/((fclk*2)/1000000),SC_NS); //second half period wait of divided system clock
+    wait(((state.USART_GTPR & 0b11111)*2)/((fclk*2)/1000000),SC_NS); //second half period wait of doubly divided system clock
 
     if(SCEN && CLKEN){  //clock for smartcard mode: toggle sclk out port
       p_uart_sclk.sc_p = !p_uart_sclk.sc_p;
@@ -492,6 +512,57 @@ void usart::SCLK_thread(){
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+//////////////////////////IrDa THREAD////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+/*
+Thread to drive IrDA port with the usart tx
+//TODO delete IrDA facility, it seem to be manage by hardware outside the usart,
+//so nothing to do with IrDA
+*/
+// void usart::IrDa_thread(){
+//   while(1){
+//
+//     ///////////////////////PRECONDITION/////////////////////////////////////////
+//     if(!IREN){  //we are not in IrDA?
+//       //we don't need this thread, wait for one of those control bit
+//       wait(IrDA_update);
+//       continue;
+//     }
+//
+//     if ((state.USART_GTPR & 0b11111111) == 0){
+//       MLOG_F(SIM, ERR, "%s: GTPR:PSC is 0x0, do not program this value\n",__FUNCTION__);
+//       wait(state.sampling_time, SC_NS);
+//       continue;
+//     }
+//
+//     //////////////////////IrDA HANDLING/////////////////////////////////////////
+//     //two case, Low Power or normal 3/16 period
+//
+//     if (!IRLP){ //not in low power, IrDa input and output should modulate 0' as 3/16 of bit period
+//
+//
+//
+//     }
+//
+//     if (IRLP){ //not in low power, IrDa input and output should modulate 0' as pulse with freq diveded by PSC
+//
+//     }
+//   }
+// }
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//////////////////////////nCTS METHOD////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+void usart::nCTS_update_method()
+{
+  if(!p_uart_nCTS.sc_p){
+    nCTS_event.notify();
+  }
+}
 ////////////////////////////////////////////////////////////////////////////////
 //////////////////////////IRQ THREAD////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -680,11 +751,16 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bE
       break;
     }
 
-    if (  ((value >> IREN_POS) & 0b1) |
-          ((value >> IRLP_POS) & 0b1) |
-          ((value >> SCEN_POS) & 0b1)) {  //we need to wake up the thread that handle SCLK in these sitution
+    if ((value >> SCEN_POS) & 0b1) {  //we need to wake up the thread that handle SCLK in these sitution
       SCLK_update.notify();
     }
+
+    // if (  ((value >> IREN_POS) & 0b1) |
+    //       ((value >> IRLP_POS) & 0b1)){
+    //   IrDA_update.notify();
+    // }
+    //TODO delete IrDA facility, it seem to be manage by hardware outside the usart,
+    //so nothing to do with IrDA
 
     state.USART_CR3 = value;
     break;
@@ -735,6 +811,7 @@ void usart::bus_cb_read(uint64_t ofs, uint8_t *data, unsigned int len, bool &bEr
     break;
     case USART_DR_OFS   :
     state.USART_SR = state.USART_SR & ~(1<<RXNE_POS);  //A read to DR reset RXNE flag
+    nRTS_event.notify();  //data has been read, notify the event for the read thread
     if(lastReadSR){    //detection of [read SR, read DR] software sequence
       state.USART_SR &=(~(1<<IDLE_POS)  &   //reset IDLE
                         ~(1<<ORE_POS)   &   //reset ORE
