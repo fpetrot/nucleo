@@ -1,0 +1,12 @@
+component:
+  implementation: switch
+  type: switch
+  class: Switch
+  include: switch.h
+  description: Simple Switch Modelisation
+  parameters:
+    key:
+     type: uint8
+     default: 97
+     description: Key in ASCII Code to enable or disable this switch
+

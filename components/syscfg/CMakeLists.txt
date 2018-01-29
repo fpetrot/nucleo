@@ -1,0 +1,2 @@
+rabbits_add_sources(nucleo_syscfg.cc)
+rabbits_add_components(nucleo_syscfg.yml)

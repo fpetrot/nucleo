@@ -25,7 +25,7 @@
 #include <rabbits/component/port/in.h>
 #include <rabbits/component/port/inout.h>
 
-#define FCLK           84000000 //84MHz
+// #define FCLK           84000000 //84MHz    //it's a yml parameters now
 #define NS_BEFORE_SAMPLING 10
 
 #define AMBA_CID 0xB105F00D
@@ -212,7 +212,6 @@
 #define DIV_FRACTION ((state.USART_BRR       ) & 0b1111)           // [3:0]
 
 
-//TODO: check if in smartcard mode data are in half duplex on TX on the real board. This is not clear in the documentation
 #define RX_PORT ((HDSEL || SCEN) ? (p_uart_tx.sc_p) : (p_uart_rx.sc_p))   //half duplex mode handling:
     //if half duplex mode: RX_PORT is the TX port on the component
     //overwise (full duplex) RX_PORT is the classic RX port of the component
@@ -258,6 +257,12 @@ sc_core::sc_event TE_posedge;
 
 sc_core::sc_event TXE_event;
 
+// void IrDA_thread();
+
+void SCLK_thread();
+sc_core::sc_event IrDALP_SC_event;
+sc_core::sc_event SCLK_update;
+
 void irq_update_thread();
 sc_core::sc_event irq_update;
 
@@ -292,6 +297,9 @@ private:
 sc_core::sc_event evRead;
 uint32_t fclk;    //Frequency of the APB bus, can be set in yml file of the platform
 bool lastReadSR;  //bool to detection of read SR write DR software sequence
+uint8_t stop_sampling;    //the 3 LSB bit will be the sampled stop bit.
+bool smartcard_clk_enable;  //use to enable the smartcard clock on divided
+bool data_composed_sclk; //SCLK value when synchronous mode. composed a te same time than the data, apply to outport by SCLK_thread
 
 tty_state state;
 };

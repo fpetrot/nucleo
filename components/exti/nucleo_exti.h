@@ -36,8 +36,10 @@
 /* Mask */
 #define NUCLEO_EXTI_REG_MASK 0x0057FFFF
 
-
+#define NUCLEO_GPIO_NB 6
 #define NUCLEO_EXTI_IRQ_NUM 16
+
+
 
 class NucleoExti : public Slave<>{
  public:
@@ -45,16 +47,22 @@ class NucleoExti : public Slave<>{
 	NucleoExti(sc_core::sc_module_name name, const Parameters &params, ConfigManager &c); 
 	virtual ~NucleoExti();
 
-    VectorPort< InPort<bool> > p_gpios;
-	VectorPort< OutPort<bool> > p_irq;
-	
+	VectorPort< OutPort<bool> > p_irq;  	
+	InPort<uint32_t> p_cfg; 
+    VectorPort< InPort<bool> > p_gpios_a;
+    VectorPort< InPort<bool> > p_gpios_b;
+    VectorPort< InPort<bool> > p_gpios_c;
+    VectorPort< InPort<bool> > p_gpios_d;
+    VectorPort< InPort<bool> > p_gpios_e;
+    VectorPort< InPort<bool> > p_gpios_h;
 
  private:
 	void bus_cb_read(uint64_t ofs, uint8_t *data, unsigned int len, bool &bErr);
 	void bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bErr);
 
 	void irq_detection_thread();
-	void irq_update_thread(); 
+	void irq_update_thread();
+	void cfg_update_thread(); 
 	void end_of_elaboration();
 
 	uint32_t m_imr_reg = 0;
@@ -64,10 +72,14 @@ class NucleoExti : public Slave<>{
 	uint32_t m_swier_reg = 0;
 	uint32_t m_pr_reg = 0;
 
+	// which gpios is set for each irq
+    InPort<bool> *m_gpios_selected[NUCLEO_EXTI_IRQ_NUM];
+
 	bool m_irq_status[NUCLEO_EXTI_IRQ_NUM] = {};
 
 	sc_core::sc_event m_ev_irq_update;  
 	sc_core::sc_event_or_list m_ev_gpios;
+	sc_core::sc_event m_ev_cfg_update; 
 };
 
 #endif
