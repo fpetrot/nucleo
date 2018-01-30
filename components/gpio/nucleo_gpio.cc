@@ -61,7 +61,7 @@ void nucleo_gpio::set_weak_bits(uint16_t val, uint32_t &reg) {
 void nucleo_gpio::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bErr)
 {
     uint32_t value = *((uint32_t*) data + 0);
-	MLOG_F(SIM, DBG, "Write ofs: 0x%x - val: 0x%x - len: %d\n", ofs, *data, len);
+	MLOG_F(SIM, DBG, "Write ofs: 0x%x - val: 0x%x - len: %d\n", ofs, value, len);
     bool odr_pin_data;
     switch (ofs) {
     case GPIOx_MODER:
