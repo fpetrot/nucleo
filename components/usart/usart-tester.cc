@@ -35,6 +35,8 @@ usartTester::usartTester(sc_core::sc_module_name name, const Parameters &params,
     ,p_uart_sclk("usart-sclk")
     ,p_uart_rx("usart-rx")
     ,p_uart_tx("usart-tx")
+    ,p_uart_nCTS("usart-nCTS")
+    ,p_uart_nRTS("usart-nRTS")
 {
   state.sampling_time_tester=  params["sampling_time"].as<uint32_t>();   //9600bauds (approximatif, le HAL de mbed comme tun erreur sur son calcul)
   state.M_tester = params["M"].as<bool>();

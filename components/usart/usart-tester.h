@@ -47,6 +47,8 @@ public:
 InPort<bool>  p_uart_sclk;
 InPort<bool>  p_uart_rx;
 OutPort<bool> p_uart_tx;
+InPort<bool>  p_uart_nCTS;
+OutPort<bool> p_uart_nRTS;
 
 struct tty_state
 {
