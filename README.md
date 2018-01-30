@@ -1,8 +1,18 @@
-# nucleo
+# Nucleo
 
-Rabbits folder for nucleo folder. Currently only a part of the board STM32F4401RE is available. 
+Rabbits folder for nucleo folder. Currently only a part of the board STM32F401RE is available. 
+
+To launch this simulation, you need to use `./nucleo-f401re.sh`. It will launch rabbits directly with F401RE platform. You need to provide a binary file. Because of internal conception, you must load it into two differents components ( see Flash for further information) by adding `-components.flash-native.file-blob file.bin -components.flash-boot.file-blob file.bin` to the previous command. 
+
+If you need to debug your software inside rabbits simulation. You can connect a gdb server to it. To do such thing, you need: 
+- To add `-gdb-server 1234` to the rabbits command. 
+- To run, in another terminal, `arm-none-eabi-gdb file.elf -ex "tar rem :1234"`, with `file.elf` your debugging file. 
 
 ## Components implemented 
+
+### Memory
+
+This simulation has two differents memory, flash and sram. Currently, the flash stores the software binary and the sram is used as the software memory. However, as the board when booting fetch the first instruction at 0x00000000, we need to alias the flash to this address. It can't be easily achieved inside rabbits. Therefore, we have created another components "flash-boot" which must contains the same binary than the default flash, component "flash-native". The flash interface which manipulates cache and provides acceleration, is currently disable. It is remplaced by a fake memory to prevent errors. 
 
 ### GPIOs 
 
@@ -68,3 +78,22 @@ SYSCFG is only composed of a register and sent messages to EXTI according to the
 ### RCC 
 
 This component was made only to allow MBED based software to startup. Indead, Mbed fetch some values in RCC registers, Clock Frequency for example, and won't start if there are not found. Therefore, this component change registers values according to MBED boot but does nothing else.   
+
+## Validation 
+
+Most of the validation was made using mbed library. This library provides HAL functions which allows to easily control our components' registers. Moreover, using mbed allows us to run the same software either on the board or on rabbits siulation.
+Mbed library can be downloaded their: https://os.mbed.com/users/mbed_official/code/mbed-dev/. However, as the FPU isn't simulated inside Qemu, in Maekfile, all occurences of `'-mfpu=fpv4-sp-d16' '-mfloat-abi=softfp'` must be removed. 
+
+### Test with board
+
+To launch a test on the Nucleo board, you must install "st-link" which provides "st-util" binary. This binary allows you to connect gdb to the board. 
+
+To add a test on the board, `st-flash write path_to_test/test.bin 0x08000000 `
+
+### Test components
+
+To ease tests and to provide better demonstrations, we have create some tests components. Some are really simple such as "led" which prints "led on" or "led off" according to its port value or "switch"  which changes its output value when a key is pressed. 
+
+UART-TESTER
+
+
