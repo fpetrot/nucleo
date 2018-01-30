@@ -89,7 +89,7 @@ platforms:
           irq: nvic.irq37    #37 ou 44
           usart-tx: usart1-tester.usart-rx
           usart-rx: usart1-tester.usart-tx
-
+          usart-sclk: usart1-tester.usart-sclk
 
       usart1-tester:    #tester un composant non mappé, avec juste un UsartPort
         type: uart-usart-tester
