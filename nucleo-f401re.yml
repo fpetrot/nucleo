@@ -45,47 +45,47 @@ platforms:
             peer: mem-bus
             address: { 0xE0042000: 0x1000 }
 
-      usart1:
-        type: uart-usart
-        fclk: 84000000    #usart 1 is on APB2, f=84Mhz
-        bindings:
-          mem:
-            peer: mem-bus
-            address: { 0x40011000: 0x1C }
-          irq: nvic.irq37    #37 ou 44
-          usart-tx: usart1-tester.usart-rx
-          usart-rx: usart1-tester.usart-tx
-          usart-sclk: usart1-tester.usart-sclk
+      # usart1:
+      #   type: uart-usart
+      #   fclk: 84000000    #usart 1 is on APB2, f=84Mhz
+      #   bindings:
+      #     mem:
+      #       peer: mem-bus
+      #       address: { 0x40011000: 0x1C }
+      #     irq: nvic.irq37    #37 ou 44
+      #     usart-tx: usart1-tester.usart-rx
+      #     usart-rx: usart1-tester.usart-tx
+      #     usart-sclk: usart1-tester.usart-sclk
 
-      usart1-tester:
-        type: uart-usart-tester
-        sampling_time: 13017  #approximately sampling time for 9600. Sampling method should work well even with shifting in sampling time calculation
-        M: 0
-        OVER8: 1
-        stop_bit: 2
-        PCE: 0
-        PS: 0
+      # usart1-tester:
+      #   type: uart-usart-tester
+      #   sampling_time: 13017  #approximately sampling time for 9600. Sampling method should work well even with shifting in sampling time calculation
+      #   M: 0
+      #   OVER8: 1
+      #   stop_bit: 2
+      #   PCE: 0
+      #   PS: 0
 
-      usart2:
-        type: uart-usart
-        bindings:
-          mem:
-            peer: mem-bus
-            address: { 0x40004400: 0x1C }
-          irq: nvic.irq38
-          usart-tx:   usart2-tester.usart-rx
-          usart-rx:   usart2-tester.usart-tx
-          usart-sclk: usart2-tester.usart-sclk
+      # usart2:
+      #   type: uart-usart
+      #   bindings:
+      #     mem:
+      #       peer: mem-bus
+      #       address: { 0x40004400: 0x1C }
+      #     irq: nvic.irq38
+      #     usart-tx:   usart2-tester.usart-rx
+      #     usart-rx:   usart2-tester.usart-tx
+      #     usart-sclk: usart2-tester.usart-sclk
 
 
-      usart2-tester:
-        type: uart-usart-tester
-        sampling_time: 13041
-        M: 0
-        OVER8: 1
-        stop_bit: 2
-        PCE: 0
-        PS: 0
+      # usart2-tester:
+      #   type: uart-usart-tester
+      #   sampling_time: 13041
+      #   M: 0
+      #   OVER8: 1
+      #   stop_bit: 2
+      #   PCE: 0
+      #   PS: 0
 
 
 
@@ -162,6 +162,7 @@ platforms:
       tim-2:
        type: nucleo-timer
        timer-size: 32
+       log-level: info
        bindings:
          mem:
            peer: mem-bus
@@ -170,6 +171,7 @@ platforms:
 
       tim-3:
        type: nucleo-timer
+       log-level: info
        bindings:
          mem:
            peer: mem-bus
@@ -178,6 +180,7 @@ platforms:
 
       tim-4:
        type: nucleo-timer
+       log-level: info
        bindings:
          mem:
            peer: mem-bus
@@ -186,6 +189,7 @@ platforms:
 
       tim-5:
        type: nucleo-timer
+       log-level: info
        timer-size: 32
        bindings:
          mem:
@@ -250,3 +254,11 @@ platforms:
           mem:
             peer: mem-bus
             address: { 0x40021C00: 0x400 }
+
+
+      # Tests components
+      led1:
+        type: led
+        bindings:
+          pin:
+            peer: gpio-a.gpios5
