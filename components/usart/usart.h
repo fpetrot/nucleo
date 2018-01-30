@@ -23,8 +23,9 @@
 #include <rabbits/component/slave.h>
 #include <rabbits/component/port/out.h>
 #include <rabbits/component/port/in.h>
+#include <rabbits/component/port/inout.h>
 
-#define FCLK           84000000 //84MHz
+// #define FCLK           84000000 //84MHz    //it's a yml parameters now
 #define NS_BEFORE_SAMPLING 10
 
 #define AMBA_CID 0xB105F00D
@@ -210,15 +211,23 @@
 #define DIV_MANTISSA ((state.USART_BRR >> 4  ) & 0b111111111111)   // [15:4]
 #define DIV_FRACTION ((state.USART_BRR       ) & 0b1111)           // [3:0]
 
+
+#define RX_PORT ((HDSEL || SCEN) ? (p_uart_tx.sc_p) : (p_uart_rx.sc_p))   //half duplex mode handling:
+    //if half duplex mode: RX_PORT is the TX port on the component
+    //overwise (full duplex) RX_PORT is the classic RX port of the component
+    //RX_PORT is used by the read thread.
+
+
 // #define UART_MASK_TX(reg)       ((reg >> 5) & 1)
 // #define UART_MASK_RX(reg)       ((reg >> 4) & 1)
 
 struct tty_state
 {
         uint32_t USART_SR;
-        //uint32_t USART_DR;
-        uint32_t USART_DR;     //transmit data register
-        uint32_t USART_DR_SR;  //transmit data register shift register
+
+        uint32_t USART_DR;      //data register
+        uint32_t USART_DR_TSR;  //data register trasmition shift register
+        uint32_t USART_DR_RSR;  //data register reception shift register
 
         uint32_t USART_BRR;
         uint32_t USART_CR1;
@@ -226,13 +235,8 @@ struct tty_state
         uint32_t USART_CR3;
         uint32_t USART_GTPR;
 
-        bool USART_SR_read;   //the SR register has been read since last reception/emmission
-
         uint32_t sampling_time; //sampling time, in ms
         float USARTDIV; //saving
-
-        int read_pos;
-        int read_count;
 };
 
 class usart : public Slave<>
@@ -247,28 +251,74 @@ void bus_cb_write(uint64_t addr, uint8_t *data, unsigned int len, bool &bErr);
 void bus_cb_read(uint64_t addr, uint8_t *data, unsigned int len, bool &bErr);
 
 void read_thread();
-sc_core::sc_event read_mode;
+sc_core::sc_event RE_posedge;
 void send_thread();
-sc_core::sc_event request_idle;
+sc_core::sc_event TE_posedge;
 sc_core::sc_event TXE_event;
+
+
+void SCLK_thread();
+sc_core::sc_event SCLK_update;
+
+// void IrDA_thread();
+// sc_core::sc_event IrDA_update;
 
 void irq_update_thread();
 sc_core::sc_event irq_update;
+
+void nCTS_update_method();
+sc_core::sc_event nCTS_event;
 
 
 void usart_init_register(void);
 
 public:
+/*Interrupt line
+*/
 OutPort<bool> p_irq;
 
+/*RX port
+  reception port in full duplex mode
+*/
 InPort<bool> p_uart_rx;
-OutPort<bool> p_uart_tx;
+
+/*TX port
+ must also be Input for the smartcard mode,
+ the smartcard slave can drive low the line for error detection
+ AND In half-duplex mode the TX port is used for RX-TX purpose.   //BUT:
+ //Single-wire half-duplex communication (HDSEL) NOT POSSIBLE!!! AS SIGNAL CAN'T BE SC_MANY_WRITERS IN RABBITS
+*/
+InOutPort<bool> p_uart_tx;
+
+/*SCLK port
+  Used for synchronized transmission, such as SPI
+*/
 OutPort<bool> p_uart_sclk;
 
+
+/*nCTS and NRTS port
+  Used for synchronized transmission, such as SPI
+*/
+InPort <bool> p_uart_nCTS;
+OutPort<bool> p_uart_nRTS;
+sc_core::sc_event nRTS_event;
+
+
+/*IrDA port
+  Used for synchronized transmission, such as SPI
+*/
+// OutPort<bool> p_uart_IrDA_Out;
+// InPort<bool> p_uart_IrDA_In;
+//TODO delete IrDA facility, it seem to be manage by hardware outside the usart,
+//so nothing to do with IrDA
+
 private:
-sc_core::sc_event evRead; 
+sc_core::sc_event evRead;
 uint32_t fclk;    //Frequency of the APB bus, can be set in yml file of the platform
 bool lastReadSR;  //bool to detection of read SR write DR software sequence
+uint8_t stop_sampling;    //the 3 LSB bit will be the sampled stop bit.
+bool smartcard_clk_enable;  //use to enable the smartcard clock on divided
+bool data_composed_sclk; //SCLK value when synchronous mode. composed a te same time than the data, apply to outport by SCLK_thread
 
 tty_state state;
 };

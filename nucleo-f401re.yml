@@ -21,41 +21,6 @@ platforms:
             address: { 0xe000e000: 0x1000 }
           irq-out: cpu.irq
 
-
-      syscfg:
-        type: nucleo-syscfg
-        bindings:
-          mem:
-            peer: mem-bus
-            address: {0x40013800: 0x1000}
-          to-exti:
-            peer: exti.from-syscfg
-
-      exti:
-        type: nucleo-exti
-        bindings:
-          mem:
-            peer: mem-bus
-            address: { 0x40013C00: 0x1000}
-          # gpios-a:
-          #   peer: gpio-a.gpios
-          irq0:
-            peer: nvic.irq6
-          irq1:
-            peer: nvic.irq7
-          irq2:
-            peer: nvic.irq8
-          irq3:
-            peer: nvic.irq9
-          irq4:
-            peer: nvic.irq10
-          # irq5 - 9  
-          irq5:
-            peer: nvic.irq23
-          # irq10 - 15
-          irq10:
-            peer: nvic.irq40
-
       # stub to prevent bus error when exiting an irq
       irq-mem:
         type: stub
@@ -64,9 +29,9 @@ platforms:
             peer: mem-bus
             address: { 0xfffffff0: 0x10}
 
-      # stub to prevent bus error when mbed use RCC aliased regions 
+      # stub to prevent bus error when mbed use RCC aliased regions
       alias-rcc-mem:
-        type: stub 
+        type: stub
         bindings:
           mem:
             peer: mem-bus
@@ -82,6 +47,7 @@ platforms:
 
       usart1:
         type: uart-usart
+        fclk: 84000000    #usart 1 is on APB2, f=84Mhz
         bindings:
           mem:
             peer: mem-bus
@@ -91,22 +57,35 @@ platforms:
           usart-rx: usart1-tester.usart-tx
           usart-sclk: usart1-tester.usart-sclk
 
-      usart1-tester:    #tester un composant non mappé, avec juste un UsartPort
+      usart1-tester:
         type: uart-usart-tester
+        sampling_time: 13017  #approximately sampling time for 9600. Sampling method should work well even with shifting in sampling time calculation
+        M: 0
+        OVER8: 1
+        stop_bit: 2
+        PCE: 0
+        PS: 0
 
-      #
-      # usart2:
-      #   type: uart-usart
-      #   bindings:
-      #     mem:
-      #       peer: mem-bus
-      #       address: { 0x40004400: 0x1C }
-      #     irq: nvic.irq38    #37 ou 44
-      #     usart: usart2-tester.usart
-      #
-      #
-      # usart2-tester:    #tester un composant non mappé, avec juste un UsartPort
-      #   type: uart-usart-tester
+      usart2:
+        type: uart-usart
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40004400: 0x1C }
+          irq: nvic.irq38
+          usart-tx:   usart2-tester.usart-rx
+          usart-rx:   usart2-tester.usart-tx
+          usart-sclk: usart2-tester.usart-sclk
+
+
+      usart2-tester:
+        type: uart-usart-tester
+        sampling_time: 13041
+        M: 0
+        OVER8: 1
+        stop_bit: 2
+        PCE: 0
+        PS: 0
 
 
 
@@ -181,23 +160,21 @@ platforms:
 
       ## TIMERS
       tim-2:
-        type: nucleo-timer
-        timer-size: 32
-        log-level: info
-        bindings:
-          mem:
-            peer: mem-bus
-            address: { 0x40000000: 0x400 }
-          irq: nvic.irq28
-      
+       type: nucleo-timer
+       timer-size: 32
+       bindings:
+         mem:
+           peer: mem-bus
+           address: { 0x40000000: 0x400 }
+         irq: nvic.irq28
+
       tim-3:
-        type: nucleo-timer
-        log-level: info
-        bindings:
-          mem:
-            peer: mem-bus
-            address: { 0x40000400: 0x400 }
-          irq: nvic.irq29
+       type: nucleo-timer
+       bindings:
+         mem:
+           peer: mem-bus
+           address: { 0x40000400: 0x400 }
+         irq: nvic.irq29
 
       tim-4:
        type: nucleo-timer
@@ -208,23 +185,23 @@ platforms:
          irq: nvic.irq30
 
       tim-5:
-        type: nucleo-timer
-        timer-size: 32
-        log-level: info
-        bindings:
-          mem:
-            peer: mem-bus
-            address: { 0x40000C00: 0x400 }
-          irq: nvic.irq50
+       type: nucleo-timer
+       timer-size: 32
+       bindings:
+         mem:
+           peer: mem-bus
+           address: { 0x40000C00: 0x400 }
+         irq: nvic.irq50
 
+      # 
+      #
+      # syscfg:
+      #   type: nucleo-syscfg
+      #   bindings:
+      #     mem:
+      #       peer: mem-bus
+      #       address: { 0x40013800: 0x400}
 
-#      usart:
-#        type: uart-pl011
-#        bindings:
-#          mem:
-#            peer: bus
-#            address: { 0x20201000: 0x1000 }
-#          irq: irq-ctrl.irq57
 
       gpio-a:
         type: rm0368-gpio
@@ -273,26 +250,3 @@ platforms:
           mem:
             peer: mem-bus
             address: { 0x40021C00: 0x400 }
-    
-      # Test led for gpios
-      led1:
-        type: led
-        bindings:
-          pin:
-            peer: gpio-a.gpios5
-
-      # Test button for gpios
-      button1:
-        type: button
-        time: 2000
-        bindings:
-          pout:
-            peer: exti.gpios-a13
-       
-      #Test Switch
-      switch1:
-        type: switch
-        key : 98
-        bindings:
-          pout:
-            peer: exti.gpios-c13
