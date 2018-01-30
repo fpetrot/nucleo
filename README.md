@@ -6,6 +6,20 @@ Rabbits folder for nucleo folder. Currently only a part of the board STM32F4401R
 
 ### GPIOs 
 
+General Purpose In/Out are partly implemented. The currently available features are :
+- select (write) or read the configuration mode
+- select (write) or read the Output type
+- select (write)  or read the Output speed
+- write (and/or read) an Output data
+- read an Input data
+- choose between Floating, Pull-Up, Pull-Down and Analog input configuration
+- bit set/reset of the Output data
+- locking mecanism to freeze the configuration 
+
+#### Conception
+
+This component is based on a few registers : between others, there is one to store the configuration mode, one to store the Output data, and one to store the Input data. To access the two last, the configuration mode as to be set correctly (Input mode to read the Input register and Output mode to read the Output register).
+
 ### Timer 
 
 General purpose timers are partly implemented. The features currently available are : 
