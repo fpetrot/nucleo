@@ -14,7 +14,8 @@ platforms:
 
       nvic:
         type: arm-nvic
-        num-irq: 52 # According to page 201 of DocID025350 Rev 4
+        # num-irq: 52 # According to page 201 of DocID025350 Rev 4    #Yes but no, 52 maskable for a total of  84
+        num-irq: 84 # According to page 201 of DocID025350 Rev 4
         bindings:
           mem:
             peer: mem-bus
@@ -56,10 +57,12 @@ platforms:
           usart-tx:   usart1-tester.usart-rx
           usart-rx:   usart1-tester.usart-tx
           usart-sclk: usart1-tester.usart-sclk
+          usart-nCTS: usart1-tester.usart-nRTS
+          usart-nRTS: usart1-tester.usart-nCTS
 
 
       usart1-tester:
-        type: uart-usart-tester
+        type: usart-tester
         sampling_time: 13017  #approximately sampling time for 9600. Sampling method should work well even with shifting in sampling time calculation
         M: 0
         OVER8: 1
@@ -77,10 +80,12 @@ platforms:
           usart-tx:   usart2-tester.usart-rx
           usart-rx:   usart2-tester.usart-tx
           usart-sclk: usart2-tester.usart-sclk
+          usart-nCTS: usart2-tester.usart-nRTS
+          usart-nRTS: usart2-tester.usart-nCTS
 
 
       usart2-tester:
-        type: uart-usart-tester
+        type: usart-tester
         sampling_time: 13041
         M: 0
         OVER8: 1
@@ -90,15 +95,29 @@ platforms:
 
 
 
+      usart6:
+        type: uart-usart
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40011400: 0x400 }
+          irq: nvic.irq71
+          usart-tx:   usart6-tester.usart-rx
+          usart-rx:   usart6-tester.usart-tx
+          usart-sclk: usart6-tester.usart-sclk
+          usart-nCTS: usart6-tester.usart-nRTS
+          usart-nRTS: usart6-tester.usart-nCTS
 
-      #
-      # usart6:
-      #   type: uart-pl011
-      #   bindings:
-      #     mem:
-      #       peer: bus
-      #       address: { 0x40011400: 0x400 }
-      #     irq: cpu.irq.irq71
+
+      usart6-tester:
+        type: usart-tester
+        sampling_time: 13041
+        M: 0
+        OVER8: 1
+        stop_bit: 2
+        PCE: 0
+        PS: 0
+
 
       flash-native:
         type: memory
@@ -194,7 +213,7 @@ platforms:
            address: { 0x40000C00: 0x400 }
          irq: nvic.irq50
 
-      # 
+      #
       #
       # syscfg:
       #   type: nucleo-syscfg
