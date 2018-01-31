@@ -37,7 +37,7 @@ rabbits_add_plugins(plugin.yml)
 
 ###  Platform Yaml 
 
-All informations for a platform are stored in `platform.yml`. 
+All information for a platform are stored in `platform.yml`. 
 
 ```Yaml
 platforms:
@@ -86,7 +86,7 @@ platforms:
     
 ```
 
-If a port is inside a VectorPort, it can be accessed by adding its number at the end. For example, `peer: gpio-a.gpios5` will link to the fifth port in the VectorPort "gpios" inside component "gpio-a".
+If a port is inside a VectorPort, it can be accessed by adding its number at the end. For example, `peer: gpio-a.gpios5` will link to the fifth port in the VectorPort "gpios" inside component "gpio-a" component.
 
 
 ### Components creation 
@@ -96,7 +96,9 @@ Each component needs at least 3 files :
 - component.h and component.cc which contain component implementation
 
 ####  component.yml
-This file gives to the platform all information for this component ( type, which class used when called, etc ) and defines parameters.
+
+Rabbits will fetch component information in this file, especially "type" is the name was must be used in a platform yaml to find this component. This file contains also parameters for this component. 
+
 
 ```Yaml
 component:
@@ -144,7 +146,7 @@ Class ComponentClass : public Slave<> {
 }
 ```
 
-Component constructer is used to instantiate component but also to instantiate ports. The name given for the ports will be the one to use in `platform.yml`
+Component constructer is used to instantiate component but can also create ports. The name given for the ports will be the one to use in `platform.yml`
 ``` C++
   ComponentClass::ComponentClass(sc_core::sc_module_name name, const Parameters &params, ConfigManager &c)
     : Slave(name, params, c)
@@ -157,6 +159,21 @@ Component constructer is used to instantiate component but also to instantiate p
     SC_THREAD(thread1); 
     SC_METHODS(method1);
   }
+```
+
+#### Component based on Qemu
+
+Components can be created using Qemu simulation. Such components must be under `Qemu` folder. To embed Qemu inside rabbits, you must extend `QemuSlave` or `QemuMaster` class and create wrap Qemu code using Qemu library. 
+
+```C++
+QemuComponent::QemuComponent(sc_core::sc_module_name name, const Parameters &params, ConfigManager &c)
+	: QemuSlave(name, params, c)
+{
+	m_obj = m_lib.object_new("qemu-name"); // .name under component's TypeInfo 
+	m_obj->realize();
+	...
+}
+
 ```
 
 ### Logs / Debug

@@ -143,7 +143,7 @@ private:
     void bus_cb_read(uint64_t addr, uint8_t *data, unsigned int len, bool &bErr);
     void bus_cb_write(uint64_t addr, uint8_t *data, unsigned int len, bool &bErr);
 
-
+	void update_pin_output(); 
     void gpio_thread();
 
     void end_of_elaboration();

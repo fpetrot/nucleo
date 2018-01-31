@@ -1,0 +1,7 @@
+component:
+  implementation: gpio-tester
+  type: gpio-tester
+  class: gpioTester
+  include: gpio-tester.h
+  description: gpio component for external connection test
+

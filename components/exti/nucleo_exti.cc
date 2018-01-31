@@ -46,6 +46,8 @@ NucleoExti::NucleoExti(sc_core::sc_module_name name, const Parameters &params, C
 	, p_gpios_e("gpios-e", NUCLEO_GPIO_COUNT)
 	, p_gpios_h("gpios-h", NUCLEO_GPIO_COUNT)
 {
+
+	// Connect to 0 to avoid systemc errors
 	GPIOS_AUTOCONNECT(p_gpios_a);
 	GPIOS_AUTOCONNECT(p_gpios_b);
 	GPIOS_AUTOCONNECT(p_gpios_c);
@@ -167,10 +169,13 @@ void NucleoExti::irq_detection_thread(){
 		for(auto &p : m_gpios_selected){
 			sc_in<bool> &sc_p = p->sc_p;
 
+#if 0
+			// Usefull to check if an input has been received
 			if(sc_p->posedge())
 				std::cout << "posedge " << i << std::endl;
 			if(sc_p->negedge())
 				std::cout << "negedge " << i << std::endl;
+#endif
 
 			if(sc_p->posedge() // rising edge detected
 			   && (m_rtsr_reg & ( 1 << i )) && (m_imr_reg & ( 1 << i ))) // and irq needed
@@ -231,6 +236,7 @@ void NucleoExti::cfg_update_thread(){
 		uint32_t newcfg = p_cfg.sc_p.read();
 		int gpiosIndex = (newcfg >> 0x10) * 4;
 
+		// update Gpios connected for irq detection 
 		for(int i = gpiosIndex; i < gpiosIndex + 4; i++){
 			int newgpio = (newcfg >> ((i % 4) * 4)) & 0xF;
 			switch(newgpio){
