@@ -1,6 +1,6 @@
 # Nucleo
 
-Rabbits folder for nucleo folder. Currently only a part of the board STM32F401RE is available. 
+Rabbits folder for nucleo platforms. Currently only a part of the board STM32F401RE is available. 
 
 To launch this simulation, you need to use `./nucleo-f401re.sh`. It will launch rabbits directly with F401RE platform. You need to provide a binary file. Because of internal conception, you must load it into two differents components ( see Flash for further information) by adding `-components.flash-native.file-blob file.bin -components.flash-boot.file-blob file.bin` to the previous command. 
 
@@ -8,7 +8,18 @@ If you need to debug your software inside rabbits simulation. You can connect a 
 - To add `-gdb-server 1234` to the rabbits command. 
 - To run, in another terminal, `arm-none-eabi-gdb file.elf -ex "tar rem :1234"`, with `file.elf` your debugging file. 
 
-## Components implemented 
+To create software, bare metal or mbed based software can be made. Mbed library provides Object-oriented classes as well as HAL functions which allows to easily control a component and its registers. Moreover, using mbed allows to run the same software either on the board or on rabbits siulation. 
+Mbed library can be downloaded their: https://os.mbed.com/users/mbed_official/code/mbed-dev/. However, as the FPU isn't simulated inside Qemu, all occurences of `'-mfpu=fpv4-sp-d16' '-mfloat-abi=softfp'` must be removed in Makefile. Caution :  Normal mbed library cannot directly used as the precompile sources required this FPU. It must be recompiled, that's why "mbed-dev" is needed. 
+
+## Components implemented
+
+### Validation Method
+
+Simulation validation was made with mbed-dev and its HAL functions. This method allows to compare rabbits behaviour with board one. Using object-oriented programmation with MBED would have been to complicated. Those functions passed through several APIs before modifying registers. Moreover, those APIs, sometimes, employ only a part of the whole board capabilities. For example, all timing related functions rely only on timer 5, others are not used. Therefore, HAL functions allow to fully control registers and then managed components functionnalities as we want.   
+
+The main advantage with mbed is that it handles board's startup. Especially, it sets clock values which are needed by bus and their components. Inside Rabbits simulations, those clocks aren't managed yet. The component "RCC" was create only to handle this startup and provides values that mbed fetchs. 
+
+To launch a test on the Nucleo board, "st-link" must be installed. It provides `st-util` and `st-flash` binaries. This binary allows you to connect gdb to the board. To add a program on the board, you must use : `st-flash write path_to_test/test.bin 0x08000000 `
 
 ### Memory
 
@@ -79,21 +90,6 @@ SYSCFG is only composed of a register and sent messages to EXTI according to the
 
 This component was made only to allow MBED based software to startup. Indead, Mbed fetch some values in RCC registers, Clock Frequency for example, and won't start if there are not found. Therefore, this component change registers values according to MBED boot but does nothing else.   
 
-## Validation 
-
-Most of the validation was made using mbed library. This library provides HAL functions which allows to easily control our components' registers. Moreover, using mbed allows us to run the same software either on the board or on rabbits siulation.
-Mbed library can be downloaded their: https://os.mbed.com/users/mbed_official/code/mbed-dev/. However, as the FPU isn't simulated inside Qemu, in Maekfile, all occurences of `'-mfpu=fpv4-sp-d16' '-mfloat-abi=softfp'` must be removed. 
-
-### Test with board
-
-To launch a test on the Nucleo board, you must install "st-link" which provides "st-util" binary. This binary allows you to connect gdb to the board. 
-
-To add a test on the board, `st-flash write path_to_test/test.bin 0x08000000 `
-
 ### Test components
 
 To ease tests and to provide better demonstrations, we have create some tests components. Some are really simple such as "led" which prints "led on" or "led off" according to its port value or "switch"  which changes its output value when a key is pressed. 
-
-UART-TESTER
-
-
