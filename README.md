@@ -39,7 +39,11 @@ General Purpose In/Out are partly implemented. The currently available features 
 
 #### Conception
 
-This component is based on a few registers : between others, there is one to store the configuration mode, one to store the Output data, and one to store the Input data. To access the two last, the configuration mode as to be set correctly (Input mode to read the Input register and Output mode to read the Output register).
+This components checks that the mode configuration is correct before writing or reading the Output Data Register or reading the Input Data Register. The gpio thread wait for an event to happen on the GPIOs. When the event is notified, for each pin of the GPIO port, the thread will check the value and the corresponding data is written in the Input Data Register.
+
+#### Tests
+
+The writing to the Output Data Register was tested using the led component and the switch, to turn the led on or off when a key is pressed. The reading feature was tested using the led component and gpio-tester component, which alternatively (each 10 seconds, using wait(10, SC_SEC) in SystemC) switches a pin to true or false. The led state is updated depending on the pin value which is read. The result is that the led blinks with a period of 10 seconds.
 
 ### Timer 
 
