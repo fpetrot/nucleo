@@ -21,6 +21,68 @@ platforms:
             address: { 0xe000e000: 0x1000 }
           irq-out: cpu.irq
 
+      syscfg:
+        type: nucleo-syscfg
+        bindings:
+          mem:
+            peer: mem-bus
+            address: {0x40013800: 0x1000}
+          to-exti:
+            peer: exti.from-syscfg
+
+      exti:
+        type: nucleo-exti
+        bindings:
+          mem:
+            peer: mem-bus
+            address: { 0x40013C00: 0x1000}
+          # Gpios Connections
+          gpios-a:
+            peer: gpio-a.gpios
+          gpios-b:
+            peer: gpio-b.gpios
+          gpios-c:
+            peer: gpio-c.gpios
+          gpios-d:
+            peer: gpio-d.gpios
+          gpios-e:
+            peer: gpio-e.gpios
+          gpios-h:
+            peer: gpio-h.gpios
+          # IRQ Connections
+          irq0:
+            peer: nvic.irq6
+          irq1:
+            peer: nvic.irq7
+          irq2:
+            peer: nvic.irq8
+          irq3:
+            peer: nvic.irq9
+          irq4:
+            peer: nvic.irq10
+          irq5:
+            peer: nvic.irq23
+          irq6:
+            peer: nvic.irq23
+          irq7:
+            peer: nvic.irq23
+          irq8:
+            peer: nvic.irq23
+          irq9:
+            peer: nvic.irq23
+          irq10:
+            peer: nvic.irq40
+          irq11:
+            peer: nvic.irq40
+          irq12:
+            peer: nvic.irq40
+          irq13:
+            peer: nvic.irq40
+          irq14:
+            peer: nvic.irq40
+          irq15:
+            peer: nvic.irq40
+
       # stub to prevent bus error when exiting an irq
       irq-mem:
         type: stub
@@ -262,3 +324,16 @@ platforms:
         bindings:
           pin:
             peer: gpio-a.gpios5
+
+      led2:
+        type: led
+        bindings:
+          pin:
+            peer: gpio-a.gpios0
+
+
+      switch1:
+        type: switch
+        bindings:
+          pout: gpio-c.gpios13
+

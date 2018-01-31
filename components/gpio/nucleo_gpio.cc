@@ -184,26 +184,14 @@ void nucleo_gpio::bus_cb_read(uint64_t ofs, uint8_t *data, unsigned int len,  bo
     
     case GPIOx_IDR:
         //doc : The data input through the I/O are stored into the input data register (GPIOx_IDR), a read-only register
-        *value = 0x0;
-        for (int i = 0; i < 16; i++) {
-            if (((gpiox_moder_reg) >> (i * 2) & 0x3) == 0x00) {
-                uint16_t x = (gpiox_idr_reg >> i) & 1U;
-                *value ^= (-(unsigned long)x ^ *value) & (1UL << i);
-            }
-        }
+        *value = gpiox_idr_reg;
         break;
     case GPIOx_ODR:
         //doc : GPIx_ODR stores the data to be output, it is read/write accessible
-        *value = 0x0;
-        for (int i = 0; i < 16; i++) {
-            if (((gpiox_moder_reg) >> (i * 2) & 0x3) == 0x01) {
-                uint16_t x = (gpiox_odr_reg >> i) & 1U;
-                *value ^= (-(unsigned long)x ^ *value) & (1UL << i);
-            }
-        }
+		*value = gpiox_odr_reg;
         break;
     case GPIOx_BSRR:
-        *value = gpiox_bsrr_reg;
+		*value = 0x0; // read always returns 0x0
         break;
     // case GPIOx_LCKR:
     // case GPIOx_AFRL:
@@ -242,5 +230,7 @@ void nucleo_gpio::gpio_thread()
             }
             i++;
         }
+
+
     }
 }
