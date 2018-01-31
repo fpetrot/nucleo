@@ -108,7 +108,7 @@ platforms:
             peer: mem-bus
             address: { 0xE0042000: 0x1000 }
 
-<<<<<<< HEAD
+
       usart1:
         type: uart-usart
         fclk: 84000000    #usart 1 is on APB2, f=84Mhz
@@ -155,51 +155,7 @@ platforms:
         stop_bit: 2
         PCE: 0
         PS: 0
-=======
-      # usart1:
-      #   type: uart-usart
-      #   fclk: 84000000    #usart 1 is on APB2, f=84Mhz
-      #   bindings:
-      #     mem:
-      #       peer: mem-bus
-      #       address: { 0x40011000: 0x1C }
-      #     irq: nvic.irq37    #37 ou 44
-      #     usart-tx: usart1-tester.usart-rx
-      #     usart-rx: usart1-tester.usart-tx
-      #     usart-sclk: usart1-tester.usart-sclk
-
-      # usart1-tester:
-      #   type: uart-usart-tester
-      #   sampling_time: 13017  #approximately sampling time for 9600. Sampling method should work well even with shifting in sampling time calculation
-      #   M: 0
-      #   OVER8: 1
-      #   stop_bit: 2
-      #   PCE: 0
-      #   PS: 0
-
-      # usart2:
-      #   type: uart-usart
-      #   bindings:
-      #     mem:
-      #       peer: mem-bus
-      #       address: { 0x40004400: 0x1C }
-      #     irq: nvic.irq38
-      #     usart-tx:   usart2-tester.usart-rx
-      #     usart-rx:   usart2-tester.usart-tx
-      #     usart-sclk: usart2-tester.usart-sclk
-
-
-      # usart2-tester:
-      #   type: uart-usart-tester
-      #   sampling_time: 13041
-      #   M: 0
-      #   OVER8: 1
-      #   stop_bit: 2
-      #   PCE: 0
-      #   PS: 0
->>>>>>> 9c6f9cf119d5577a799d81311b5bb52b9a506ee1
-
-
+        sending: true
 
       usart6:
         type: uart-usart
@@ -400,4 +356,3 @@ platforms:
         type: switch
         bindings:
           pout: gpio-c.gpios13
-
