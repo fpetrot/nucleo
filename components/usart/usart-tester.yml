@@ -1,6 +1,6 @@
 component:
-  implementation: uart-usart-tester
-  type: uart-usart-tester
+  implementation: usart-tester
+  type: usart-tester
   class: usartTester
   include: usart-tester.h
   description: usart UART compenent for external connection test
@@ -12,11 +12,11 @@ component:
     M:
       type: boolean
       default: 0
-      description: data length (M?9:8)
+      description: data length (M?9:8)bits
     OVER8:
       type: boolean
       default: 0
-      description: oversampling, number of sample per bit (OVER8?8:16)
+      description: oversampling, number of sample per bit (OVER8?8:16)samples
     stop_bit:
       type: uint8
       default: 0
@@ -29,3 +29,7 @@ component:
       type: boolean
       default: 0
       description: parity polarity (PS?odd:even)
+    sending:
+      type: boolean
+      default: 0
+      description: does the tester should send some frame?

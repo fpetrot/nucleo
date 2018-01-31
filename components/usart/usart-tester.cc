@@ -41,12 +41,13 @@ usartTester::usartTester(sc_core::sc_module_name name, const Parameters &params,
   state.sampling_time_tester=  params["sampling_time"].as<uint32_t>();   //9600bauds (approximatif, le HAL de mbed comme tun erreur sur son calcul)
   state.M_tester = params["M"].as<bool>();
   state.OVER8_tester = params["OVER8"].as<bool>();
-  state.USART_DR_SR_tester = 0x0;
+  state.USART_RDR_SR_tester = 0x0;
   state.USART_TDR_SR_tester = 0x0;
   state.USART_DR_tester = 0x0;
   state.stop_bit_tester = params["stop_bit"].as<uint8_t>();
   state.PCE_tester = params["PCE"].as<bool>();
   state.PS_tester = params["PS"].as<bool>();
+  sending = params["sending"].as<bool>();
 
 
 
@@ -77,8 +78,6 @@ void usartTester::read_thread()
   unsigned int sample, bit_count;
   wait(10,SC_NS); //Little wait, to let the line time to init
 
-  // sc_trace(usartTrace, p_uart_rx.sc_p , "TX");
-
   ////////////////////////sampling data
   while(1) {
     while(p_uart_rx.sc_p){        //the line is idle, waiting for start bit
@@ -99,7 +98,7 @@ void usartTester::read_thread()
               MLOG_F(SIM, DBG, "%s: ERROR: start bit detection Error:%d sample:%d\n",__FUNCTION__, value, sample);
             }
           }else{
-            state.USART_DR_SR_tester = ((state.USART_DR_SR_tester >> 1) | (p_uart_rx.sc_p << (state.M_tester?9:8)-1));
+            state.USART_RDR_SR_tester = ((state.USART_RDR_SR_tester >> 1) | (p_uart_rx.sc_p << (state.M_tester?9:8)-1));
             MLOG_F(SIM, DBG, "%s: USART-TESTER-RX:%d: %d\n",__FUNCTION__,bit_count,p_uart_rx.sc_p.read());
           }
         }
@@ -144,20 +143,25 @@ void usartTester::read_thread()
     if(state.PCE_tester){  //parity control enable
       int count=0 , i;
       for (i=0; i<(state.M_tester?8:7) ; i++){
-        count+=(state.USART_DR_SR_tester>>i)&1; //counting set bits in data
+        count+=(state.USART_RDR_SR_tester>>i)&1; //counting set bits in data
       }
-      if (((count + (uint32_t)(state.PS_tester))%2)!=state.USART_DR_SR_tester>>(state.M_tester?9:8)){  //MSB is parity bit, PS define Odd or Even
+      if (((count + (uint32_t)(state.PS_tester))%2)!=state.USART_RDR_SR_tester>>(state.M_tester?9:8)){  //MSB is parity bit, PS define Odd or Even
         MLOG_F(SIM, DBG, "%s: ERROR: parity check, PE set\n",__FUNCTION__);
       }else{
         MLOG_F(SIM, DBG, "%s: parity check OK\n",__FUNCTION__);
       }
-      state.USART_DR_tester = state.USART_DR_SR_tester & (state.M_tester?255:127); //masking of MSB parity bit, mask depend on length
-    }else state.USART_DR_tester = state.USART_DR_SR_tester;
+      state.USART_DR_tester = state.USART_RDR_SR_tester & (state.M_tester?255:127); //masking of MSB parity bit, mask depend on length
+    }else state.USART_DR_tester = state.USART_RDR_SR_tester;
     MLOG_F(SIM, DBG, "%s: USART_DR update complete (0x%x)\n",__FUNCTION__,state.USART_DR_tester);
   }
 }
 
 
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /*
 This thread contain code to send some frames to the tested USART.
@@ -166,57 +170,63 @@ The characteritic of the frames are the same than those of the read thread
 void usartTester::send_thread()
 {
   p_uart_tx.sc_p = true;  //1 on output tx port, that's the idle state
-  //
-  // wait(1000,SC_MS);
-  // MLOG_F(SIM, DBG, "%s:starting sending test frame\n",__FUNCTION__);
-  //
-  // unsigned int bit_count;
-  // //////////////////SENDING IDLE FRAME
-  // p_uart_tx.sc_p = true;  //1 on output tx port
-  //
-  // //calculation of idle frme time, depend on oversampling method, number of data bit and stop bit
-  // uint32_t time_of_idle_frame;
-  // float nb_stop;
-  // switch(state.stop_bit_tester){
-  //   case 0b00 ://1 stop bit
-  //   nb_stop = 1;
-  //   break;
-  //   case 0b01 ://2 stop bit
-  //   nb_stop = 0.5;
-  //   break;
-  //   case 0b10 : //2 stop bit
-  //   nb_stop = 2;
-  //   break;
-  //   case 0b11 ://1,5 stop bit
-  //   nb_stop = 1.5;
-  //   break;
-  // }
-  // time_of_idle_frame = uint32_t(state.sampling_time_tester * (8*(2-state.OVER8_tester)) * ((state.M_tester?9:8) + nb_stop));
-  //
-  // MLOG_F(SIM, DBG, "%s:sending idle frame\n",__FUNCTION__);
-  // wait(time_of_idle_frame,SC_NS);
-  // MLOG_F(SIM, DBG, "%s:idle frame sent\n",__FUNCTION__);
-  //
-  // //////////////////SENDING DATA FRAME
-  // state.USART_TDR_SR_tester = 0x15; //Copy of data register in shift registers
-  //
-  // //Sending data in USART_DR_SR
-  // for (bit_count=0; bit_count <= (state.M_tester?9:8); bit_count++){
-  //
-  //   if(bit_count==0){//start bit
-  //     p_uart_tx.sc_p = false;
-  //   }
-  //   else{
-  //     MLOG_F(SIM, DBG,"%s: USART-TESTER-TX:%d\n", __FUNCTION__,state.USART_DR_SR_tester & 1);
-  //     p_uart_tx.sc_p = state.USART_DR_SR_tester & 1; //send the LSB bit of SR
-  //     state.USART_DR_SR_tester = state.USART_DR_SR_tester >> 1; //shifting the shift register
-  //   }
-  //   wait(state.sampling_time_tester * (8*(2-state.OVER8_tester)),SC_NS); //wait for the next bit to send
-  // }
-  //
-  // //sending stop bit
-  // p_uart_tx.sc_p = true;
-  //
-  // wait(uint32_t(state.sampling_time_tester * (8*(2-(float)state.OVER8_tester))*nb_stop),SC_NS);
+
+  wait(1000,SC_MS);
+  if(!sending)wait(); //stop the thread
+
+  MLOG_F(SIM, DBG, "%s:starting sending test frame\n",__FUNCTION__);
+
+  unsigned int bit_count;
+  //////////////////SENDING IDLE FRAME
+  p_uart_tx.sc_p = true;  //1 on output tx port
+
+  //calculation of idle frme time, depend on oversampling method, number of data bit and stop bit
+  uint32_t time_of_idle_frame;
+  float nb_stop;
+  switch(state.stop_bit_tester){
+    case 0b00 ://1 stop bit
+    nb_stop = 1;
+    break;
+    case 0b01 ://2 stop bit
+    nb_stop = 0.5;
+    break;
+    case 0b10 : //2 stop bit
+    nb_stop = 2;
+    break;
+    case 0b11 ://1,5 stop bit
+    nb_stop = 1.5;
+    break;
+  }
+  time_of_idle_frame = uint32_t(state.sampling_time_tester * (8*(2-state.OVER8_tester)) * ((state.M_tester?9:8) + nb_stop));
+
+  MLOG_F(SIM, DBG, "%s:sending idle frame\n",__FUNCTION__);
+  wait(time_of_idle_frame,SC_NS);
+  MLOG_F(SIM, DBG, "%s:idle frame sent\n",__FUNCTION__);
+
+  state.USART_TDR_SR_tester = state.USART_DR_tester; //Copy of data register in shift registers
+
+  for(int i = 0; i<100; i++){     //100TIME
+    //////////////////SENDING DATA FRAME
+    state.USART_TDR_SR_tester=i; //Copy of data register in shift registers
+
+    //Sending data in USART_DR_SR
+    for (bit_count=0; bit_count <= (state.M_tester?9:8); bit_count++){
+
+      if(bit_count==0){//start bit
+        p_uart_tx.sc_p = false;
+      }
+      else{
+        MLOG_F(SIM, DBG,"%s: USART-TESTER-TX:%d\n", __FUNCTION__,state.USART_TDR_SR_tester & 1);
+        p_uart_tx.sc_p = state.USART_TDR_SR_tester & 1; //send the LSB bit of SR
+        state.USART_TDR_SR_tester = state.USART_TDR_SR_tester >> 1; //shifting the shift register
+      }
+      wait(state.sampling_time_tester * (8*(2-state.OVER8_tester)),SC_NS); //wait for the next bit to send
+    }
+
+    //sending stop bit
+    p_uart_tx.sc_p = true;
+
+    wait(uint32_t(state.sampling_time_tester * (8*(2-state.OVER8_tester))*nb_stop),SC_NS);
+  }
 
 }

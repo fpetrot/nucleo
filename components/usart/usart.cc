@@ -30,23 +30,19 @@
 
 using namespace sc_core;
 
-
-//Single-wire half-duplex communication (HDSEL) NOT POSSIBLE!!! AS SIGNAL CAN'T BE MANY_WRITERS IN RABBITS
-
-
 ////////////////////////////////////////////////////////////////////////////////
 void usart::usart_init_register(void)
 {
   memset(&state, 0, sizeof(state));
-  state.USART_SR    = USART_SR_RST_VALUE;
-  state.USART_DR    = USART_DR_RST_VALUE;
-  state.USART_DR_TSR= USART_DR_RST_VALUE;
-  state.USART_DR_RSR= USART_DR_RST_VALUE;
-  state.USART_BRR   = USART_BRR_RST_VALUE;
-  state.USART_CR1   = USART_CR1_RST_VALUE;
-  state.USART_CR2   = USART_CR2_RST_VALUE;
-  state.USART_CR3   = USART_CR3_RST_VALUE;
-  state.USART_GTPR  = USART_GTPR_RST_VALUE;
+  state.USART_SR      = USART_SR_RST_VALUE;
+  state.USART_DR      = USART_DR_RST_VALUE;
+  state.USART_DR_TSR  = USART_DR_RST_VALUE;
+  state.USART_DR_RSR  = USART_DR_RST_VALUE;
+  state.USART_BRR     = USART_BRR_RST_VALUE;
+  state.USART_CR1     = USART_CR1_RST_VALUE;
+  state.USART_CR2     = USART_CR2_RST_VALUE;
+  state.USART_CR3     = USART_CR3_RST_VALUE;
+  state.USART_GTPR    = USART_GTPR_RST_VALUE;
 }
 
 
@@ -61,10 +57,9 @@ usart::usart(sc_core::sc_module_name name, const Parameters &params, ConfigManag
 , p_uart_nRTS("usart-nRTS")
 {
   fclk = params["fclk"].as<uint32_t>();
-  //OVERWISE SEND REQUEST TO RCC TO HAVE DE APB FREQUENCY. BUT HAS WE ARE SLAVE...
+  //OVERWISE SEND REQUEST TO RCC TO HAVE THE APB FREQUENCY. BUT HAS WE ARE SLAVE...
 
   usart_init_register();
-
 
   SC_THREAD(read_thread);
   SC_THREAD(send_thread);
@@ -73,7 +68,6 @@ usart::usart(sc_core::sc_module_name name, const Parameters &params, ConfigManag
 
   SC_METHOD(nCTS_update_method);
   sensitive << p_uart_nCTS.sc_p;
-
 }
 
 usart::~usart()
@@ -88,15 +82,17 @@ usart::~usart()
 *We use the RX_PORT macro to read the input port,
 because we can be in half duplex or full duplex communication
 with the macro we don't care, it's as well TX or RX port according the configuration
+TODO the RX_PORT macro don't seem to work. Check it!
 */
 void usart::read_thread()
 {
   uint32_t sample, bit_count;
   bool seeking_for_addr = false;
+  float nb_stop;          //need nb_stop to calculate nb_sample_idle
 
   wait(NS_BEFORE_SAMPLING,SC_NS); //Little wait, to let the line time to init
 
-  ////////////////////////DATA SAMPLING
+  ////Reception mode activate
   while(1) {
     if(!RE){
       wait(RE_posedge); //not in reception mode, wait RE posedge
@@ -108,7 +104,6 @@ void usart::read_thread()
       MLOG_F(SIM, DBG, "%s: ENTER MUTE MODE\n",__FUNCTION__);
       int nb_sample_high;   //number of high sample detected in a row
       int nb_sample_idle;   //number of sample where the port need to be high to detect an idle frames
-      int nb_stop;          //need nb_stop to calculate nb_sample_idle
       //how many stop assuming the configuration?
       int stop_b_reg_v = (state.USART_CR2 >> STOP0_POS) & 0b11;
       switch(stop_b_reg_v){
@@ -125,7 +120,7 @@ void usart::read_thread()
         nb_stop = 1.5;
         break;
       }
-      nb_sample_idle = (1 + M?9:8 + nb_stop) * state.sampling_time;   //nb sample expected for an idle frame
+      nb_sample_idle = (1 + (M?9:8) + nb_stop);   //nb sample expected for an idle frame
       for(nb_sample_high = 0 ; nb_sample_high < nb_sample_idle ; nb_sample_high++){
         if(!RX_PORT){ //line not high?
         // if(!p_uart_rx.sc_p){ //line not high?
@@ -143,23 +138,50 @@ void usart::read_thread()
     }
 
     /////////////////////START BIT DETECTION//////////////////////
+    int nb_idle_sample = 0;
     while(RX_PORT){        //the line is idle, waiting for start bit
+      nb_idle_sample++;
       wait(state.sampling_time,SC_NS);
+      if(nb_idle_sample == (OVER8?8:16) * ((M?9:8) + 1 + nb_stop )) { //length of a frame
+        state.USART_SR |= (1<<IDLE_POS);    //still low? set IDLE flag
+      }
     }
+
     //Start bit detected!
     if (WAKE) MLOG_F(SIM, DBG, "%s: Frame detected, testing the address of the node\n",__FUNCTION__);
+    state.USART_SR &= ~(1<<IDLE_POS);    //reset IDLE flag
+
     //////////////////////SAMPLING DATA///////////////////////////
     for (bit_count=0; (bit_count <= (M?9:8))  && (!RWU || seeking_for_addr); bit_count++){     //for each bit,        [RWU break because it need to MUTE the receiver, but not when we are looking for an address]
+      uint8_t samples_bit = 0;
       for (sample=1; (sample <= (OVER8?8:16)) && (!RWU || seeking_for_addr); sample++){       //at each sampling time,[RWU break because it need to MUTE the receiver, but not when we are looking for an address]
-        if (sample==(OVER8?5:9)){   //at the right sampling time,
+
+        if (((sample == (OVER8?4:8))  && !ONEBIT) ||
+             (sample == (OVER8?5:9))              ||
+            ((sample == (OVER8?6:10)) && !ONEBIT)) {   //the bit are sample 3 times if ONEBIT is low, otherwise just once
+          samples_bit=(samples_bit << 1) | RX_PORT;  //add the sample bit
+          // printf("sampling: \n RX_PORT:%d\n p_uart_tx:%d\n p_uart_rx:%d\n",RX_PORT,p_uart_tx.sc_p.read(),p_uart_rx.sc_p.read());
+        }
+        if(sample == (OVER8?7:11)){ //finish sampling, test the sample value
+          if( !ONEBIT &&   //if ONEBIT low, need to determine if there is noisy trouble
+            !((samples_bit & 0b111) == 0b111 ||
+              (samples_bit & 0b111) == 0b000 )){   //Ob111 or 0b000 are a not noisy sample
+            MLOG_F(SIM, DBG, "%s:USART: noise/desynch detected during sampling : [%d;%d;%d]\n",__FUNCTION__,(samples_bit >> 0) & 0b1,  (samples_bit >> 1) & 0b1,  (samples_bit >> 2) & 0b1);
+            state.USART_SR |= 1<<NF_POS;  //set noise detected flag
+            int nb_1;
+            for(int i = 0 ; i<3 ; i++){   //we count the number of high sample,
+              nb_1 += ((samples_bit >> i ) & 0b1);
+            }
+            if(nb_1>2)samples_bit=1;    //if >2 the bit is read as high
+          }
           //adding input bit in the shifting register
           if(bit_count==0){
-            if(RX_PORT){
+            if(samples_bit & 0b1){    //we use the LSB sample bit, there are all the same
               MLOG_F(SIM, DBG, "%s: USART-RX: Start bit detection Error\n",__FUNCTION__);
             }
           }else{
-            MLOG_F(SIM, DBG, "%s: USART-RX:%d :%d\n",__FUNCTION__,bit_count,HDSEL?p_uart_tx.sc_p.read():p_uart_rx.sc_p.read());
-              state.USART_DR_RSR = ((state.USART_DR_RSR >> 1) | (RX_PORT << ((M?9:8)-1)));
+            MLOG_F(SIM, DBG, "%s: USART-RX:%d :%d\n",__FUNCTION__,bit_count,(samples_bit & 0b1));
+              state.USART_DR_RSR = ((state.USART_DR_RSR >> 1) | ((samples_bit & 0b1) << ((M?9:8)-1)));
           }
         }
         wait(state.sampling_time,SC_NS);
@@ -183,9 +205,23 @@ void usart::read_thread()
       }else{
         MLOG_F(SIM, DBG, "%s: parity check OK\n",__FUNCTION__);
       }
-      state.USART_DR = state.USART_DR_RSR & (M?255:127); //masking of MSB parity bit, mask depend on length
-    }else state.USART_DR = state.USART_DR_RSR;
-    MLOG_F(SIM, DBG, "%s: USART_DR update complete (%x)\n",__FUNCTION__,state.USART_DR);
+    }
+
+    //////////////////////UPDATE DATA REGISTER///////////////////
+    if(RXNE){ //read data register not empty, need to set overrrun flag (ORE)
+      state.USART_SR |= 1<<ORE_POS;   //it will be cleared by sw sequence (read SR read DR )
+      MLOG_F(SIM, DBG, "%s: USART_DR update not complete: OVERRUN ERROR (SR:%d: overwritten at next frame)\n",__FUNCTION__,state.USART_DR_RSR);
+
+    }else{
+      // state.USART_SR |= 1<<TXE_POS;  //FIXME TODO: validate or erase. It's a trick.
+                                        //The HAL provided by ARM send a dummy frame before each reception.
+                                        //But never set send mode for this.
+                                        //So it never stop waiting for TXE raise if HAL is configure in RX mode only...
+                                        // If you set TX_RX mode this trick is useless
+      state.USART_DR = state.USART_DR_RSR;
+      MLOG_F(SIM, DBG, "%s: USART_DR update complete (0x%x(%d))\n",__FUNCTION__,state.USART_DR,state.USART_DR);
+    }
+
     //update RXNE in USART_SR:
     state.USART_SR |= 1<<RXNE_POS;
 
@@ -285,10 +321,10 @@ void usart::read_thread()
       }
     }
     seeking_for_addr = false;
+    ////////////////
 
     if(RWU)continue; //if entering mute mode, return to the while(1) statement for idle frame detection to wake the receiver
     //'->it need to be test after each sc_core::wait because the configuration may change..
-
     irq_update.notify();
   }
 }
@@ -335,7 +371,7 @@ void usart::send_thread(){
     if(SCEN){  //posedge on TE must send an idle frame, but not in smartcard mode (SCEN=1), as idle frame not defined in ISO
     }else{//calculation of idle frme time, depend on oversampling method, number of data bit and stop bit
       time_of_idle_frame = uint32_t(state.sampling_time * (8*(2-(OVER8))) * (((M)?9:8) + nb_stop));
-      MLOG_F(SIM, DBG, "%s: request idle frame\nM:%d (%d bit)\nOVER8:%d (%d sample per bit)\nb_stop %x\nsampling_time:%d\n",__FUNCTION__,M,M?9:8,OVER8,OVER8?8:16,((state.USART_CR2 >> STOP0_POS) & 0b11),state.sampling_time);
+      MLOG_F(SIM, DBG, "%s: request idle frame\nM:%d (%d bit)\nOVER8:%d (%d sample per bit)\nb_stop %x\nsampling_time:%d\n",__FUNCTION__,M,(M?9:8),OVER8,(OVER8?8:16),((state.USART_CR2 >> STOP0_POS) & 0b11),state.sampling_time);
       wait(time_of_idle_frame,SC_NS);
       //idle frame: frame full of 1, the line is already high
       MLOG_F(SIM, DBG, "%s: idle frame sent\n",__FUNCTION__);
@@ -361,7 +397,7 @@ void usart::send_thread(){
           continue; //return to TE test,
       }
 
-      MLOG_F(SIM, DBG, "%s: New %s to send (0x%x) \n",__FUNCTION__,SBK?"break":"data",SBK?0:state.USART_DR);
+      MLOG_F(SIM, DBG, "%s: New %s to send (0x%x) \n",__FUNCTION__,(SBK?"break":"data"),(SBK?0:state.USART_DR));
 
       if(SBK){ //need to send a break frame!
         int nb_bit_break = (LINEN? 13 : (M? 11:10));  //if LINEN break is 13 bit long, otherwise depending on M bits
@@ -408,7 +444,7 @@ void usart::send_thread(){
              !(PCE   && (bit_count==(M?9:8)))) {    //and not on the parity bit (MSB of data) if PCE=1.
             if((!LBCL && (bit_count==(M?9:8)))){    //don't toggle if LBCL=0 and transimission of MSB
               data_composed_sclk = CPOL;              //SCLK reset to steady state
-            }else data_composed_sclk = (!CPHA && (bit_count == 1))? CPOL: !data_composed_sclk ;  //CPHA? toggle imediatly, otherwise, toggle after half baud period
+            }else data_composed_sclk = ((!CPHA && (bit_count == 1))? CPOL: !data_composed_sclk) ;  //CPHA? toggle imediatly, otherwise, toggle after half baud period
             SCLK_update.notify();
           }
         }
@@ -513,7 +549,7 @@ void usart::SCLK_thread(){
 
 
 ////////////////////////////////////////////////////////////////////////////////
-//////////////////////////IrDa THREAD////////////////////////////////////////////
+//////////////////////////IrDa THREAD///////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /*
 Thread to drive IrDA port with the usart tx
@@ -536,7 +572,7 @@ Thread to drive IrDA port with the usart tx
 //       continue;
 //     }
 //
-//     //////////////////////IrDA HANDLING/////////////////////////////////////////
+  //     //////////////////////IrDA HANDLING/////////////////////////////////////////
 //     //two case, Low Power or normal 3/16 period
 //
 //     if (!IRLP){ //not in low power, IrDa input and output should modulate 0' as 3/16 of bit period
@@ -591,7 +627,7 @@ void usart::irq_update_thread()
               (( FE || NF || ORE) && EIE && DMAR )));
     // printf("TC:%d\nTXE:%d\nCTS:%d\nIDLE:%d\nORE:%d\nRXNE:%d\nPE:%d\nLBD:%d\n( FE || NF || ORE):%d\n",TC,TXE,CTS,IDLE,ORE,RXNE,PE,LBD,(FE||NF||ORE));
 
-    MLOG_F(SIM, DBG, "%s - %s\n", __FUNCTION__, (flags != 0) ? "1" : "0");
+    MLOG_F(SIM, DBG, "%s - %s\n", __FUNCTION__, ((flags != 0) ? "1" : "0"));
 
     p_irq.sc_p = (flags != 0);
   }
@@ -609,13 +645,13 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bE
   switch (ofs) {
 
     case USART_SR_OFS   :///////////////////////////////////////////////////
-    ///////////////VERIFICATION DES DROITS D'UTILISATION DES REGISTRES
+    ///////////////VERIFICATION OF VALUE
     if  (((value & USART_SR_MSK_Res) != (USART_SR_RST_VALUE & USART_SR_MSK_Res))|
-    //les bits reservés doivent rester aux valeurs de reset
+    //reserved bit must stay at reset value
     ((((value & USART_SR_MSK_RC0) ^ (state.USART_SR & USART_SR_MSK_RC0)) & (state.USART_SR & USART_SR_MSK_RC0)) != 0 )|
-    //les bits read clear doivent rester aux valeurs de precedente ou remmetre a 0 un bit du registre
+    //Read_clear bit must stay at previous value or be clear
     ((value & USART_SR_MSK_R) != (state.USART_SR & USART_SR_MSK_R) ))
-    //les bits read only doivent rester aux valeurs precedente
+    //Read only bit must stay at previous value
     {
       bErr = true;
       break;
@@ -626,13 +662,13 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bE
 
     break;
     case USART_DR_OFS   :///////////////////////////////////////////////////
-    ///////////////VERIFICATION DES DROITS D'UTILISATION DES REGISTRES
+    ///////////////VERIFICATION OF VALUE
     if  (((value & USART_DR_MSK_Res) != (USART_DR_RST_VALUE & USART_DR_MSK_Res))|
-    //les bits reservés doivent rester aux valeurs de reset
+    //reserved bit must stay at reset value
     ((((value & USART_DR_MSK_RC0) ^ (state.USART_DR & USART_DR_MSK_RC0)) & (state.USART_DR & USART_DR_MSK_RC0)) != 0 )|
-    //les bits read clear doivent rester aux valeurs de precedente ou remmetre a 0 un bit du registre
+    //Read_clear bit must stay at previous value or be clear
     ((value & USART_DR_MSK_R) != (state.USART_DR & USART_DR_MSK_R) ))
-    //les bits read only doivent rester aux valeurs precedente
+    //Read only bit must stay at previous value
     {
       bErr = true;
       break;
@@ -653,13 +689,13 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bE
     break;
 
     case USART_BRR_OFS  :///////////////////////////////////////////////////
-    ///////////////VERIFICATION DES DROITS D'UTILISATION DES REGISTRES
+    ///////////////VERIFICATION OF VALUE
     if  (((value & USART_BRR_MSK_Res) != (USART_BRR_RST_VALUE & USART_BRR_MSK_Res))|
-    //les bits reservés doivent rester aux valeurs de reset
+    //reserved bit must stay at reset value
     ((((value & USART_BRR_MSK_RC0) ^ (state.USART_BRR & USART_BRR_MSK_RC0)) & (state.USART_BRR & USART_BRR_MSK_RC0)) != 0 )|
-    //les bits read clear doivent rester aux valeurs de precedente ou remmetre a 0 un bit du registre
+    //Read_clear bit must stay at previous value or be clear
     ((value & USART_BRR_MSK_R) != (state.USART_BRR & USART_BRR_MSK_R) ))
-    //les bits read only doivent rester aux valeurs precedente
+    //Read only bit must stay at previous value
     {
       bErr = true;
       break;
@@ -681,26 +717,19 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bE
     break;
 
     case USART_CR1_OFS  :///////////////////////////////////////////////////
-    ///////////////VERIFICATION DES DROITS D'UTILISATION DES REGISTRES
+    ///////////////VERIFICATION OF VALUE
     if  (((value & USART_CR1_MSK_Res) != (USART_CR1_RST_VALUE & USART_CR1_MSK_Res))|
-    //les bits reservés doivent rester aux valeurs de reset
+    //reserved bit must stay at reset value
     ((((value & USART_CR1_MSK_RC0) ^ (state.USART_CR1 & USART_CR1_MSK_RC0)) & (state.USART_CR1 & USART_CR1_MSK_RC0)) != 0 )|
-    //les bits read clear doivent rester aux valeurs de precedente ou remmetre a 0 un bit du registre
+    //Read_clear bit must stay at previous value or be clear
     ((value & USART_CR1_MSK_R) != (state.USART_CR1 & USART_CR1_MSK_R) ))
-    //les bits read only doivent rester aux valeurs precedente
-    {
-      // printf("res: %d \n",((value & USART_CR1_MSK_Res) != USART_CR1_RST_VALUE));
-      //      //les bits reservés doivent rester aux valeurs de reset
-      // printf("RC0: %d \n",    ((((value & USART_CR1_MSK_RC0) ^ (state.USART_CR1 & USART_CR1_MSK_RC0)) & (state.USART_CR1 & USART_CR1_MSK_RC0)) != 0 ));
-      //     //les bits read clear doivent rester aux valeurs de precedente ou remmetre a 0 un bit du registre
-      // printf("Readonly: %d \n",    ((value & USART_CR1_MSK_R) != (state.USART_CR1 & USART_CR1_MSK_R) ));
-      bErr = true;
+    //Read only bit must stay at previous value
+    {bErr = true;
       break;
     }
     //not sure if needed in RE mode
     if ((((value >> RE_POS &1) && !RE) && UE) ||
         (((value >> UE_POS &1) && !UE) && RE)) { //posedge on RE bit when UE set or posedge on UE when RE is set
-        // if(value >> UE_POS & 1){ //only when usart enable
           RE_posedge.notify();  //send idle frame to init transmissions
       // }
     }
@@ -719,13 +748,13 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bE
     break;
 
     case USART_CR2_OFS  :///////////////////////////////////////////////////
-    ///////////////VERIFICATION DES DROITS D'UTILISATION DES REGISTRES
+    ///////////////VERIFICATION OF VALUE
     if  (((value & USART_CR2_MSK_Res) != (USART_CR2_RST_VALUE & USART_CR2_MSK_Res))|
-    //les bits reservés doivent rester aux valeurs de reset
+    //reserved bit must stay at reset value
     ((((value & USART_CR2_MSK_RC0) ^ (state.USART_CR2 & USART_CR2_MSK_RC0)) & (state.USART_CR2 & USART_CR2_MSK_RC0)) != 0 )|
-    //les bits read clear doivent rester aux valeurs de precedente ou remmetre a 0 un bit du registre
+    //Read_clear bit must stay at previous value or be clear
     ((value & USART_CR2_MSK_R) != (state.USART_CR2 & USART_CR2_MSK_R) ))
-    //les bits read only doivent rester aux valeurs precedente
+    //Read only bit must stay at previous value
     {
       bErr = true;
       break;
@@ -739,13 +768,13 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bE
     break;
 
     case USART_CR3_OFS  :///////////////////////////////////////////////////
-    ///////////////VERIFICATION DES DROITS D'UTILISATION DES REGISTRES
+    ///////////////VERIFICATION OF VALUE
     if  (((value & USART_CR3_MSK_Res) != (USART_CR3_RST_VALUE & USART_CR3_MSK_Res))|
-    //les bits reservés doivent rester aux valeurs de reset
+    //reserved bit must stay at reset value
     ((((value & USART_CR3_MSK_RC0) ^ (state.USART_CR3 & USART_CR3_MSK_RC0)) & (state.USART_CR3 & USART_CR3_MSK_RC0)) != 0 )|
-    //les bits read clear doivent rester aux valeurs de precedente ou remmetre a 0 un bit du registre
+    //Read_clear bit must stay at previous value or be clear
     ((value & USART_CR3_MSK_R) != (state.USART_CR3 & USART_CR3_MSK_R) ))
-    //les bits read only doivent rester aux valeurs precedente
+    //Read only bit must stay at previous value
     {
       bErr = true;
       break;
@@ -760,19 +789,19 @@ void usart::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bE
     //   IrDA_update.notify();
     // }
     //TODO delete IrDA facility, it seem to be manage by hardware outside the usart,
-    //so nothing to do with IrDA
+    //so nothing to do with IrDA.. Check it, this is unclear in the documentation of the board
 
     state.USART_CR3 = value;
     break;
 
     case USART_GTPR_OFS :///////////////////////////////////////////////////
-    ///////////////VERIFICATION DES DROITS D'UTILISATION DES REGISTRES
+    ///////////////VERIFICATION OF VALUE
     if  (((value & USART_GTPR_MSK_Res) != (USART_GTPR_RST_VALUE & USART_GTPR_MSK_Res))|
-    //les bits reservés doivent rester aux valeurs de reset
+    //reserved bit must stay at reset value
     ((((value & USART_GTPR_MSK_RC0) ^ (state.USART_GTPR & USART_GTPR_MSK_RC0)) & (state.USART_GTPR & USART_GTPR_MSK_RC0)) != 0 )|
-    //les bits read clear doivent rester aux valeurs de precedente ou remmetre a 0 un bit du registre
+    //Read_clear bit must stay at previous value or be clear
     ((value & USART_GTPR_MSK_R) != (state.USART_GTPR & USART_GTPR_MSK_R) ))
-    //les bits read only doivent rester aux valeurs precedente
+    //Read only bit must stay at previous value
     {
       bErr = true;
       break;
@@ -801,7 +830,6 @@ void usart::bus_cb_read(uint64_t ofs, uint8_t *data, unsigned int len, bool &bEr
   uint32_t *pdata = (uint32_t *) data;
 
   bErr = false;
-  lastReadSR = false;
 
   switch (ofs) {
 
@@ -818,7 +846,6 @@ void usart::bus_cb_read(uint64_t ofs, uint8_t *data, unsigned int len, bool &bEr
                         ~(1<<NF_POS)    &   //reset NF
                         ~(1<<FE_POS)    &   //reset FE
                         ~(1<<PE_POS)  );    //reset PE
-
     }
     *pdata = state.USART_DR;
     break;
@@ -843,6 +870,8 @@ void usart::bus_cb_read(uint64_t ofs, uint8_t *data, unsigned int len, bool &bEr
     (unsigned int) ofs);
     bErr = true;
   }
+
+  if(ofs != USART_SR_OFS) lastReadSR = false; //reset the boolean use to detect software sequence
 
   MLOG_F(SIM, DBG, "%s: to 0x%lx value %x\n", __FUNCTION__, (unsigned long) ofs, *pdata);
 

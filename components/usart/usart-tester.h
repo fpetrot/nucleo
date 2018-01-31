@@ -36,6 +36,7 @@ private:
 
   uint32_t fclk;
   uint32_t usartdiv;
+  bool     sending;
 
 void read_thread();
 
@@ -55,7 +56,7 @@ struct tty_state
         uint32_t sampling_time_tester;
         bool M_tester;
         bool OVER8_tester;
-        uint32_t USART_DR_SR_tester;
+        uint32_t USART_RDR_SR_tester;
         uint32_t USART_TDR_SR_tester;
         uint32_t USART_DR_tester;
         uint8_t stop_bit_tester;
