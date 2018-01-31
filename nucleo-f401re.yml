@@ -111,6 +111,7 @@ platforms:
 
       usart1:
         type: uart-usart
+        log-level: info
         fclk: 84000000    #usart 1 is on APB2, f=84Mhz
         bindings:
           mem:
@@ -126,6 +127,7 @@ platforms:
 
       usart1-tester:
         type: usart-tester
+        log-level: info
         sampling_time: 13017  #approximately sampling time for 9600. Sampling method should work well even with shifting in sampling time calculation
         M: 0
         OVER8: 1
@@ -135,6 +137,7 @@ platforms:
 
       usart2:
         type: uart-usart
+        log-level: info
         bindings:
           mem:
             peer: mem-bus
@@ -149,6 +152,7 @@ platforms:
 
       usart2-tester:
         type: usart-tester
+        log-level: trace
         sampling_time: 13041
         M: 0
         OVER8: 1
@@ -159,6 +163,7 @@ platforms:
 
       usart6:
         type: uart-usart
+        log-level: info
         bindings:
           mem:
             peer: mem-bus
@@ -173,6 +178,7 @@ platforms:
 
       usart6-tester:
         type: usart-tester
+        log-level: info
         sampling_time: 13041
         M: 0
         OVER8: 1

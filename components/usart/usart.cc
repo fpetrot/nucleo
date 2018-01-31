@@ -30,21 +30,6 @@
 
 using namespace sc_core;
 
-////////////////////////////////////////////////////////////////////////////////
-void usart::usart_init_register(void)
-{
-  memset(&state, 0, sizeof(state));
-  state.USART_SR      = USART_SR_RST_VALUE;
-  state.USART_DR      = USART_DR_RST_VALUE;
-  state.USART_DR_TSR  = USART_DR_RST_VALUE;
-  state.USART_DR_RSR  = USART_DR_RST_VALUE;
-  state.USART_BRR     = USART_BRR_RST_VALUE;
-  state.USART_CR1     = USART_CR1_RST_VALUE;
-  state.USART_CR2     = USART_CR2_RST_VALUE;
-  state.USART_CR3     = USART_CR3_RST_VALUE;
-  state.USART_GTPR    = USART_GTPR_RST_VALUE;
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 usart::usart(sc_core::sc_module_name name, const Parameters &params, ConfigManager &c)
@@ -76,6 +61,21 @@ usart::~usart()
 
 
 ////////////////////////////////////////////////////////////////////////////////
+void usart::usart_init_register(void)
+{
+  memset(&state, 0, sizeof(state));
+  state.USART_SR      = USART_SR_RST_VALUE;
+  state.USART_DR      = USART_DR_RST_VALUE;
+  state.USART_DR_TSR  = USART_DR_RST_VALUE;
+  state.USART_DR_RSR  = USART_DR_RST_VALUE;
+  state.USART_BRR     = USART_BRR_RST_VALUE;
+  state.USART_CR1     = USART_CR1_RST_VALUE;
+  state.USART_CR2     = USART_CR2_RST_VALUE;
+  state.USART_CR3     = USART_CR3_RST_VALUE;
+  state.USART_GTPR    = USART_GTPR_RST_VALUE;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 //////////////////////READ THREAD///////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /*
@@ -101,7 +101,7 @@ void usart::read_thread()
 
     ///////////////////////////MUTE MODE/////////////////////////////
     if(RWU){  //if mute mode, idle frame detection to wake the receiver
-      MLOG_F(SIM, DBG, "%s: ENTER MUTE MODE\n",__FUNCTION__);
+      MLOG_F(SIM, INF, "%s: ENTER MUTE MODE\n",__FUNCTION__);
       int nb_sample_high;   //number of high sample detected in a row
       int nb_sample_idle;   //number of sample where the port need to be high to detect an idle frames
       //how many stop assuming the configuration?
@@ -133,7 +133,7 @@ void usart::read_thread()
         seeking_for_addr = true;
       }else{
         state.USART_CR1 &= ~(1<<RWU_POS);   //reset RWU flag
-        MLOG_F(SIM, DBG, "%s: EXIT MUTE MODE (RWU reset)\n",__FUNCTION__);
+        MLOG_F(SIM, INF, "%s: EXIT MUTE MODE (RWU reset)\n",__FUNCTION__);
       }
     }
 
@@ -210,7 +210,7 @@ void usart::read_thread()
     //////////////////////UPDATE DATA REGISTER///////////////////
     if(RXNE){ //read data register not empty, need to set overrrun flag (ORE)
       state.USART_SR |= 1<<ORE_POS;   //it will be cleared by sw sequence (read SR read DR )
-      MLOG_F(SIM, DBG, "%s: USART_DR update not complete: OVERRUN ERROR (SR:%d: overwritten at next frame)\n",__FUNCTION__,state.USART_DR_RSR);
+      MLOG_F(SIM, INF, "%s: USART_DR update not complete: OVERRUN ERROR (SR:%d: overwritten at next frame)\n",__FUNCTION__,state.USART_DR_RSR);
 
     }else{
       // state.USART_SR |= 1<<TXE_POS;  //FIXME TODO: validate or erase. It's a trick.
@@ -219,7 +219,7 @@ void usart::read_thread()
                                         //So it never stop waiting for TXE raise if HAL is configure in RX mode only...
                                         // If you set TX_RX mode this trick is useless
       state.USART_DR = state.USART_DR_RSR;
-      MLOG_F(SIM, DBG, "%s: USART_DR update complete (0x%x(%d))\n",__FUNCTION__,state.USART_DR,state.USART_DR);
+      MLOG_F(SIM, INF, "%s: USART_DR update complete (0x%x(%d))\n",__FUNCTION__,state.USART_DR,state.USART_DR);
     }
 
     //update RXNE in USART_SR:
@@ -317,7 +317,7 @@ void usart::read_thread()
       //the 4 LSb of CR2 are the addr of our node
       if (state.USART_DR_RSR == (state.USART_CR2 & 0b1111)){  //if it match we need to wake up the receiver
         state.USART_CR1 &= ~(1<<RWU_POS);   //reset RWU flag -> wake up
-        MLOG_F(SIM, DBG, "%s: EXIT MUTE MODE (RWU reset)\n",__FUNCTION__);
+        MLOG_F(SIM, INF, "%s: EXIT MUTE MODE (RWU reset)\n",__FUNCTION__);
       }
     }
     seeking_for_addr = false;
@@ -397,7 +397,7 @@ void usart::send_thread(){
           continue; //return to TE test,
       }
 
-      MLOG_F(SIM, DBG, "%s: New %s to send (0x%x) \n",__FUNCTION__,(SBK?"break":"data"),(SBK?0:state.USART_DR));
+      MLOG_F(SIM, INF, "%s: New %s to send (0x%x) \n",__FUNCTION__,(SBK?"break":"data"),(SBK?0:state.USART_DR));
 
       if(SBK){ //need to send a break frame!
         int nb_bit_break = (LINEN? 13 : (M? 11:10));  //if LINEN break is 13 bit long, otherwise depending on M bits
@@ -632,6 +632,9 @@ void usart::irq_update_thread()
     p_irq.sc_p = (flags != 0);
   }
 }
+
+
+//////////////////////READING WRITING REGISTER HANDLING/////////////////////////
 
 void usart::bus_cb_write(uint64_t ofs, uint8_t *data, unsigned int len, bool &bErr)
 {
