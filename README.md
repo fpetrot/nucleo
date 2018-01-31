@@ -41,9 +41,9 @@ Defaults registers values can be passed via parameters for MODER, OSPEEDR and PU
 
 #### Conception
 
-This component is based on a few registers : between others, there is one to store the configuration mode, one to store the Output data ( ODR ) , and one to store the Input data ( IDR ). The last one is automaticly updated when the value of a pin is changed. Especially, it happens when a writing in ODR register changes the pin value. 
+This component checks that the mode configuration is correct before writing the Output Data Register (ODR). `gpio_thread` waits for an event happenning on this GPIO pins. When the event is notified, this thread will check the value pins and the corresponding data is written in the Input Data Register (IDR). Especially, this happens when ODR triggers a change on a pin, modifying IDR at the same time. 
 
-Its behaviour was mainly validated with basic components like a LED or a button. Those components were connected to different pins. Therefore, when the led's pin value changed, this were printing its statut showing that output functionnalities were working. The same was made with input functionnalities and the button. 
+The writing to the Output Data Register was tested using the led component and the switch, to turn the led on or off when a key is pressed. The reading feature was tested using the led component and gpio-tester component, which alternatively (each 10 seconds, using `wait(10, SC_SEC)` in SystemC) switches a pin to true or false. The led state is updated depending on the pin value which is read. The result is that the led blinks with a period of 10 seconds.
 
 ### Timer 
 
