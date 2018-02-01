@@ -13,7 +13,6 @@ If you need to debug your software inside rabbits simulation. You can connect a 
 To create software, bare metal or mbed based software can be made. Mbed library provides Object-oriented classes as well as HAL functions which allow to easily control a component and its registers. Moreover, using mbed allows to run the same software either on the board or on rabbits siulation.
 Mbed library can be downloaded there: https://os.mbed.com/users/mbed_official/code/mbed-dev/. However, as the FPU isn't simulated inside Qemu, all occurrences of `'-mfpu=fpv4-sp-d16' '-mfloat-abi=softfp'` must be removed in Makefile. Caution:  Normal mbed library cannot directly used as the precompile sources required this FPU. It must be recompiled, that's why "mbed-dev" is needed.
 
-## Components implemented
 
 ### Validation Method
 
@@ -142,4 +141,4 @@ This component was made only to allow MBED based software to startup. Indeed, Mb
 
 ### Test components
 
-To ease tests and to provide better demonstrations, we have create some tests components. Some are really simple such as "led" which prints "led on" or "led off" according to its port value or "switch"  which changes its output value when a key is pressed.
+To ease tests and to provide better demonstrations, we have create some tests components. Some are really simple such as "led" which prints "led on" or "led off" according to its port value or "switch"  which changes its output value when a key is pressed. Some are more complex, such as the usart-tester. The operating is really similar than the USART itself, but it also provide trace file of the exchange. the file are named usartX-testerUsartTrace.vcd according to the number of the USART tested. These file record the modification of the signals, and can be open with viewer such as GTKWave for exemple. This allow a quick comparaison between the log trace, and the expected behavior.

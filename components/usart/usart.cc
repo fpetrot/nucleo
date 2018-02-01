@@ -488,6 +488,8 @@ void usart::send_thread(){
 
       wait(state.sampling_time * (8*(2-(OVER8)))*nb_stop,SC_NS);
 
+      /////////////////////STATUS UPDATE///////////////////////
+
       if(TXE){
         state.USART_SR |= 1<<TC_POS;  //sending frame complete, if TXE is still set (no new data) set TC
         MLOG_F(SIM, DBG, "%s: set TC because no new data (TXE:%d)\n",__FUNCTION__,TXE);
