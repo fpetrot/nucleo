@@ -182,6 +182,6 @@ Rabbits provides logs and debugging informations which can be enable globally or
 To add logs on a component implementation, use: 
 ```
 MLOG_F(SIM, lvl, "Debugging informations :  val = 0x%x\n", val);
-// lvl can be TRC?, DBG, INF ? , ERR.  
+// lvl can be TRC, DBG, INF, WRN, ERR.  
 ```
 
