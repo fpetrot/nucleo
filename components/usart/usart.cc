@@ -348,7 +348,6 @@ void usart::send_thread(){
     //wake up on TE posedge
     wait(TE_posedge);
 
-
     //how many stop assuming the configuration?
     int stop_b_reg_v = (state.USART_CR2 >> STOP0_POS) & 0b11;
     switch(stop_b_reg_v){
@@ -428,7 +427,7 @@ void usart::send_thread(){
           p_uart_tx.sc_p = false;
         }
         else{
-          if(PCE && state.USART_DR_TSR & 1) parity_count++;
+          if(PCE && (state.USART_DR_TSR & 1)) parity_count++;
 
           if(PCE && bit_count == (M?9:8)){  //MSB is parity bit when PCE is set
             p_uart_tx.sc_p = (parity_count + PS )%2;    //send parity bit, PS?Odd:Even

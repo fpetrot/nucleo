@@ -74,37 +74,46 @@ Its validation was made inside test `timer_hal`. This test has two different par
 
 
 
-
 ### USART
 
 Universal Synchronous Asynchronous Receiver Transmitter are 'almost' fully implemented.
 The feature currently not available are :
-- SmartCard NACK signal in emmission. The NACK signal allow error detection and resending of data in case of parity error. The receiver, in case of parity error, must pull low the line during the transmission of stop bit to warn the transmitter of the error. But as in smartcard mode the communication are half-duplex, the receiver must pull low the TX port of the usart. As the port in Rabbits are bind throw non-SC_MANY_WRITTERS signal, a NACK sending will stop the simulation due to error: (E115) sc_signal<T> cannot have more than one driver.
-- Guard time before TC rise. In smartcard mode the software can set a guard time in GTPR register to delay the rise of TC flag. This feature need to be implemented.
+- SmartCard NACK signal in emission. The NACK signal allow error detection and resending of data in case of parity error. The receiver, in case of parity error, must pull low the line during the transmission of stop bit to warn the transmitter of the error. But as in SmartCard mode the communication are half-duplex, the receiver must pull low the TX port of the USART. As the port in Rabbits are bind throw non-`SC_MANY_WRITTERS` signal, a NACK sending will stop the simulation due to error: `(E115) sc_signal<T> cannot have more than one driver.`
+- Guard time before TC rise. In SmartCard mode the software can set a guard time in GTPR register to delay the rise of TC flag. This feature need to be implemented.
 - LIN break character detection (LBD flag). This feature need to be implemented.
-
+- IrDA facility. This model consider
 
 #### Conception
 
-This component is composed of four threads to handle the three main port of the USART, the communication input port RX, the communication outpout port TX, the clock for synchronous communication, and another one to handling the interrupt. The two hardware control flow port (nCTS and nRTS) are also drive by these threads.
+This component is composed of four threads to handle the three main port of the USART, the communication input port RX, the communication output port TX, the clock for synchronous communication, and another one to handling the interrupt. The two hardware control flow port (nCTS and nRTS) are also drive by these threads.
 
 ##### read_thread
-The reading thread is divide in X parts. The thread is composed of a infinite loop that execute each of these parts in this order:
+The reading thread is divide in 7 parts. The thread is composed of a infinite loop that execute, if it's necessary, these parts in this order:
 - Mute mode: if mute mode is activated the thread will look for an idle frame to quit the mute mode. To detect the idle frame the thread will sample the line and count the number of high sample in a row. If the number of high sample is equal to an idle frame the thread quit the mute mode. The number of sample needed is determine from character length and the number of stop bit configured.
 - Start bit detection: The thread look for the first start bit, that means a low edge on the reception line.
-- Sampling data: the thread sample the data according to the configuration. Each bit can be sampled three time for noise or desynchonization detection, and the value applied is the mean value of the sample.
-- Parity checking: the thread check the parity of the received frame, and update accordingly the status of the usart.
+- Sampling data: the thread sample the data according to the configuration. Each bit can be sampled three time for noise or desynchronization detection, and the value applied is the mean value of the sample.
+- Parity checking: the thread check the parity of the received frame, and update accordingly the status of the USART.
 - Update data register. The thread will update the data register, if is empty, with the value of the receiving shifting register. Otherwise the data will not be update and the overrun flag will raise.
--  Stop bit sampling: the thread will sample the stop bit to validate the data, and update the status register. In case of smartcard mode this part will also send a NACK signal when it's needed. But for now if it's happen the simulation will stop (cf unavailable feature).
--  Address mark detetion wake up. This part need to compare the value of the data register  detect the address of the node in case of address mark wake up configuration.
+-  Stop bit sampling: the thread will sample the stop bit to validate the data, and update the status register. In case of SmartCard mode this part will also send a NACK signal when it's needed. But for now if it's happen the simulation will stop (cf unavailable feature).
+-  Address mark detection wake up. If the receiver was mute with address mark detection wake up, this part need to compare the value of the data register with the address of the node.
 
 ##### send_thread
 
+The sending thread is divide in 5 parts. The thread is composed of a infinite loop that execute each of these parts in this order:
+- Waiting for transmission: firstly the thread will wait for a posedge on the control bit that enable the transmission. If a posedge is notify, the thread send an idle frame before handling the first data.
+- Waiting data: The thread will wait for new data to send, for break character request or wait for the line in case of hardware flow control. It's in this part that the data register will be copy in the shifting register, and clear.
+- Sending data: the thread send the data on the transmit line according to the configuration, and also create a synchronized clock if it's necessary, and adjust the parity bit in the MSB of data.
+- Stop bit sending: the thread will send the stop bit, and sample the transmission line in case of SmartCard mode. In fact a NACK signal can be send by the receiver, and it need to be detect by the USART.
+- Status update: the thread will update the status register, with the transmission complete flag, in case there is no new data to send. [Note: it's in this part the "Guard time before TX rise" should be implemented]
 
 ##### SCLK_thread
 
+The SCLK port is a clock provide to the slave for synchronous or SmartCard mode. In case of synchronous mode, for example in SPI communication, the clock is composed at the same time as the data (cf send_thread). In SmartCard the SCLK signal is used by the SmartCard as internal clock, so SCLK is divided form internal system clock.
+The thread will either applied the value calculate in send_thread, or divide the system clock, according to the configuration.
 
 ##### irq_update_thread
+
+This thread will update the interrupt line of the USART. It need to be wake up after each possible change of a flag in the status register. The value of the interrupt line is a combinatorics combinations between status flag and interrupt enable control bit (xxIE).
 
 
 ### Exti / SYSCFG
